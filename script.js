@@ -1,7 +1,30 @@
 // VVN Messenger - Main Application
+
 (function() {
     'use strict';
 
+    // ---------- STATE ----------
+    let state = {
+        currentUser: null,
+        currentChatPartner: null,
+        localCache: { users: [], chats: {}, messages: {} },
+        isMobile: window.innerWidth < 768,
+        syncInterval: null,
+        settings: {
+            e2ee: true,
+            twofa: false,
+            privacy: false,
+            devMode: false,
+            autoLock: 'never',
+            sessionTimeout: 'never',
+            messageHistory: 'forever',
+            messageDelivery: 'e2ee',
+            theme: 'dark'
+        },
+        loadingComplete: false
+    };
+
+    // Get CONFIG from window
     const CONFIG = window.CONFIG || {
         BIN_ID: '6a5222dbda38895dfe4ef18e',
         MASTER_KEY: '$2a$10$xpnzNbyjOgRS6s..YVAMhOqwuj/FOPnU15M2J9uSwHBsRJAygi1Lu',
@@ -14,33 +37,11 @@
         SYNC_INTERVAL: 5000
     };
 
-    // ---------- STATE ----------
-    let state = {
-        currentUser: null,
-        currentChatPartner: null,
-        localCache: { users: [], chats: {}, messages: {} },
-        isMobile: window.innerWidth < 768,
-        isTablet: window.innerWidth >= 768 && window.innerWidth < 1024,
-        isDesktop: window.innerWidth >= 1024,
-        deviceType: 'mobile',
-        syncInterval: null,
-        settings: {
-            e2ee: true,
-            twofa: false,
-            privacy: false,
-            devMode: false,
-            autoLock: 'never',
-            sessionTimeout: 'never',
-            messageHistory: 'forever',
-            theme: 'dark'
-        },
-        loadingComplete: false
-    };
-
     // ---------- DOM REFS ----------
     const DOM = {
         loadingOverlay: document.getElementById('loadingOverlay'),
         loaderFill: document.getElementById('loaderFill'),
+        deviceScreen: document.getElementById('deviceScreen'),
         authScreen: document.getElementById('authScreen'),
         messenger: document.getElementById('messenger'),
         authError: document.getElementById('authError'),
@@ -67,6 +68,7 @@
         messageInput: document.getElementById('messageInput'),
         sendBtn: document.getElementById('sendBtn'),
         backBtn: document.getElementById('backBtn'),
+        profileBtn: document.getElementById('profileBtn'),
         settingsBtn: document.getElementById('settingsBtn'),
         syncDot: document.getElementById('syncDot'),
         syncStatus: document.getElementById('syncStatus'),
@@ -101,7 +103,10 @@
         devStatus: document.getElementById('devStatus'),
         chatAvatar: document.getElementById('chatAvatar'),
         chatHeaderInfo: document.getElementById('chatHeaderInfo'),
+        // Selection elements
         selectBtn: document.getElementById('selectBtn'),
+        userSettingsBtn: document.getElementById('userSettingsBtn'),
+        chatSettingsBtn: document.getElementById('chatSettingsBtn'),
         selectionToolbar: document.getElementById('selectionToolbar'),
         selectedCount: document.getElementById('selectedCount'),
         deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
@@ -127,14 +132,23 @@
         bgCustom: document.getElementById('bgCustom'),
         bgUpload: document.getElementById('bgUpload'),
         createNoteBtn: document.getElementById('createNoteBtn'),
+        // New elements
+        chatDropdownBtn: document.getElementById('chatDropdownBtn'),
+        dropdownMenu: document.getElementById('dropdownMenu'),
+        autoDetectBtn: document.getElementById('autoDetectBtn'),
+        deviceIndicator: document.getElementById('deviceIndicator'),
+        // Security elements
         autoLockTimer: document.getElementById('autoLockTimer'),
         sessionTimeout: document.getElementById('sessionTimeout'),
         messageHistory: document.getElementById('messageHistory'),
+        messageDelivery: document.getElementById('messageDelivery'),
+        // Theme elements
         primaryColor: document.getElementById('primaryColor'),
         secondaryColor: document.getElementById('secondaryColor'),
         textColor: document.getElementById('textColor'),
         accentColor: document.getElementById('accentColor'),
         applyCustomTheme: document.getElementById('applyCustomTheme'),
+        // File elements
         clipBtn: document.getElementById('clipBtn'),
         fileModal: document.getElementById('fileModal'),
         fileModalClose: document.getElementById('fileModalClose'),
@@ -143,15 +157,25 @@
         filePreviewContainer: document.getElementById('filePreviewContainer'),
         fileClearBtn: document.getElementById('fileClearBtn'),
         fileCaption: document.getElementById('fileCaption'),
-        fileSendBtn: document.getElementById('fileSendBtn'),
-        dropdownToggle: document.getElementById('dropdownToggle'),
-        dropdownMenu: document.getElementById('dropdownMenu'),
-        deviceSelector: document.getElementById('deviceSelector'),
-        confirmDeviceBtn: document.getElementById('confirmDeviceBtn'),
-        deviceOptions: document.querySelectorAll('.device-option')
+        fileSendBtn: document.getElementById('fileSendBtn')
     };
 
-    // ---------- UTILITY ----------
+    // ---------- STATE VARIABLES ----------
+    let selectionMode = false;
+    let selectedMessages = new Set();
+    let pinnedMessages = {};
+    let contactCustomNames = {};
+    let blockedUsers = [];
+    let chatSettings = {
+        bubbleStyle: 'rounded',
+        background: 'default',
+        bgImage: null
+    };
+    let pendingFiles = [];
+    let autoLockTimeout = null;
+    let lastActivity = Date.now();
+
+    // ---------- UTILITY FUNCTIONS ----------
     function formatTime(ts) {
         const d = new Date(ts);
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -167,14 +191,6 @@
         if (days < 1) return 'Today';
         if (days === 1) return '1 day';
         return days + ' days';
-    }
-
-    function getUserByUsername(username) {
-        return state.localCache.users.find(u => u.username === username);
-    }
-
-    function getChatKey(u1, u2) {
-        return [u1, u2].sort().join('_');
     }
 
     function getUserTags(username) {
@@ -200,70 +216,80 @@
         return tags;
     }
 
-    // ---------- DEVICE SELECTOR ----------
-    function selectDevice(device) {
-        state.deviceType = device;
-        document.querySelectorAll('.device-option').forEach(el => {
-            el.classList.toggle('active', el.dataset.device === device);
-        });
-        localStorage.setItem('vvn_device', device);
+    function getUserByUsername(username) {
+        return state.localCache.users.find(u => u.username === username);
     }
 
-    function loadDeviceStyle(device) {
-        const link = document.getElementById('deviceStyle');
-        if (device === 'mobile') link.href = 'style-mobile.css';
-        else if (device === 'tablet') link.href = 'style-tablet.css';
-        else link.href = 'style-desktop.css';
+    function getChatKey(u1, u2) {
+        return [u1, u2].sort().join('_');
     }
 
-    function applyDeviceLayout() {
-        const device = state.deviceType || localStorage.getItem('vvn_device') || 'mobile';
-        loadDeviceStyle(device);
-        document.querySelectorAll('.device-option').forEach(el => {
-            el.classList.toggle('active', el.dataset.device === device);
-        });
-        // Update classes
-        document.body.className = device + '-device';
-        // Update sidebar/chat area for mobile
-        if (device === 'mobile' && state.currentChatPartner) {
-            document.getElementById('sidebar').classList.add('hide-mobile');
-            DOM.chatArea.classList.add('active-mobile');
-        } else if (device === 'mobile') {
-            document.getElementById('sidebar').classList.remove('hide-mobile');
-            DOM.chatArea.classList.remove('active-mobile');
+    function getDisplayName(username) {
+        if (contactCustomNames[username]) return contactCustomNames[username];
+        const user = getUserByUsername(username);
+        return user ? user.displayName || username : username;
+    }
+
+    // ---------- NOTIFICATIONS ----------
+    function sendNotification(username, message, time) {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'granted') {
+            new Notification('VVN - New Message', {
+                body: username + ': ' + message + ' at ' + time,
+                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💬</text></svg>'
+            });
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission();
         }
     }
 
     // ---------- LOADING ----------
     function updateLoading(progress) {
         const p = Math.min(progress, 100);
-        if (DOM.loaderFill) DOM.loaderFill.style.width = p + '%';
+        if (DOM.loaderFill) {
+            DOM.loaderFill.style.width = p + '%';
+        }
         if (p >= 100 && !state.loadingComplete) {
             state.loadingComplete = true;
             setTimeout(() => {
-                if (DOM.loadingOverlay) DOM.loadingOverlay.classList.add('hidden');
+                if (DOM.loadingOverlay) {
+                    DOM.loadingOverlay.classList.add('hidden');
+                }
             }, 300);
         }
     }
 
+    // ---------- STATUS BAR ----------
     function setStatus(text, color) {
-        if (DOM.syncStatus) DOM.syncStatus.textContent = text;
-        if (DOM.syncDot) DOM.syncDot.className = 'status-dot ' + color;
+        if (DOM.syncStatus) {
+            DOM.syncStatus.textContent = text;
+        }
+        if (DOM.syncDot) {
+            DOM.syncDot.className = 'status-dot ' + color;
+        }
     }
 
-    // ---------- JSONBin ----------
+    // ---------- JSONBin API ----------
     async function fetchFromBin() {
         try {
             setStatus('Fetching...', 'yellow');
-            const resp = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}`, {
-                headers: { 'X-Master-Key': CONFIG.MASTER_KEY, 'X-Bin-Meta': 'false' }
+            const resp = await fetch('https://api.jsonbin.io/v3/b/' + CONFIG.BIN_ID, {
+                headers: {
+                    'X-Master-Key': CONFIG.MASTER_KEY,
+                    'X-Bin-Meta': 'false'
+                }
             });
-            if (!resp.ok) { setStatus('Using cache', 'yellow'); return null; }
+            if (!resp.ok) {
+                console.warn('HTTP Error:', resp.status);
+                setStatus('Using cache', 'yellow');
+                return null;
+            }
             const data = await resp.json();
             setStatus('Connected', 'green');
             return data;
         } catch (e) {
-            setStatus('Offline', 'yellow');
+            console.warn('Fetch error, using cache:', e.message);
+            setStatus('Offline mode', 'yellow');
             return null;
         }
     }
@@ -271,43 +297,55 @@
     async function updateBin(data) {
         try {
             setStatus('Saving...', 'yellow');
-            const resp = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}`, {
+            const resp = await fetch('https://api.jsonbin.io/v3/b/' + CONFIG.BIN_ID, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-Master-Key': CONFIG.MASTER_KEY, 'X-Bin-Meta': 'false' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': CONFIG.MASTER_KEY,
+                    'X-Bin-Meta': 'false'
+                },
                 body: JSON.stringify(data)
             });
-            if (!resp.ok) { setStatus('Save failed', 'red'); return false; }
+            if (!resp.ok) {
+                console.warn('Save error:', resp.status);
+                setStatus('Save failed', 'red');
+                return false;
+            }
             setStatus('Saved', 'green');
             return true;
-        } catch (e) { setStatus('Offline', 'yellow'); return false; }
+        } catch (e) {
+            console.warn('Save error:', e.message);
+            setStatus('Offline', 'yellow');
+            return false;
+        }
     }
 
     // ---------- SYNC ----------
     async function syncWithRemote() {
+        console.log('🔄 Syncing...');
         setStatus('Syncing...', 'yellow');
+
         const remote = await fetchFromBin();
         if (remote) {
             const remoteUsers = remote.users || [];
             const remoteChats = remote.chats || {};
             const remoteMessages = remote.messages || {};
+
             const localMessages = state.localCache.messages || {};
-            
+            let hasNewMessages = false;
+
             for (const [key, msgs] of Object.entries(remoteMessages)) {
                 if (!localMessages[key]) {
                     localMessages[key] = msgs;
+                    hasNewMessages = true;
                 } else if (msgs.length > localMessages[key].length) {
                     const newMsgs = msgs.slice(localMessages[key].length);
                     for (const msg of newMsgs) {
                         if (msg.sender !== state.currentUser?.username) {
+                            hasNewMessages = true;
                             const partner = key.split('_').find(u => u !== state.currentUser?.username);
                             if (partner && state.currentUser) {
-                                // Send notification (browser)
-                                if ('Notification' in window && Notification.permission === 'granted') {
-                                    new Notification('VVN - New Message', {
-                                        body: `${partner}: ${msg.text || '📎 File'}`,
-                                        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💬</text></svg>'
-                                    });
-                                }
+                                sendNotification(partner, msg.text || '📎 File', formatTime(msg.timestamp));
                             }
                         }
                     }
@@ -328,11 +366,14 @@
             state.localCache.messages = localMessages;
 
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+
             setStatus('Synced: ' + state.localCache.users.length + ' users', 'green');
 
             if (state.currentUser) {
                 renderMessenger();
-                if (state.currentChatPartner) openChat(state.currentChatPartner);
+                if (state.currentChatPartner) {
+                    openChat(state.currentChatPartner);
+                }
             }
             return true;
         } else {
@@ -346,6 +387,69 @@
         const success = await updateBin(state.localCache);
         if (success) setStatus('Pushed to cloud', 'green');
         return success;
+    }
+
+    // ---------- DEVICE SELECTION ----------
+    function showDeviceSelection() {
+        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'flex';
+        if (DOM.authScreen) DOM.authScreen.style.display = 'none';
+        if (DOM.messenger) DOM.messenger.style.display = 'none';
+    }
+
+    function selectDevice(deviceType) {
+        localStorage.setItem('vvn_device', deviceType);
+        if (typeof applyDeviceLayout === 'function') {
+            applyDeviceLayout(deviceType);
+        }
+        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'none';
+        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
+    }
+
+    // ---------- DROPDOWN MENU ----------
+    function toggleDropdown() {
+        if (!DOM.dropdownMenu) return;
+        if (DOM.dropdownMenu.style.display === 'block') {
+            DOM.dropdownMenu.style.display = 'none';
+        } else {
+            DOM.dropdownMenu.style.display = 'block';
+            // Position the dropdown
+            const btn = DOM.chatDropdownBtn;
+            if (btn) {
+                const rect = btn.getBoundingClientRect();
+                DOM.dropdownMenu.style.top = (rect.bottom + 8) + 'px';
+                DOM.dropdownMenu.style.right = '12px';
+            }
+        }
+    }
+
+    function closeDropdown() {
+        if (DOM.dropdownMenu) DOM.dropdownMenu.style.display = 'none';
+    }
+
+    function handleDropdownAction(action) {
+        switch(action) {
+            case 'select':
+                toggleSelectionMode();
+                break;
+            case 'user-settings':
+                openUserSettings();
+                break;
+            case 'chat-settings':
+                openChatSettings();
+                break;
+            case 'profile':
+                if (state.currentChatPartner) {
+                    showProfile(state.currentChatPartner);
+                }
+                break;
+            case 'device':
+                logout();
+                showDeviceSelection();
+                break;
+            case 'logout':
+                logout();
+                break;
+        }
     }
 
     // ---------- AUTH ----------
@@ -362,6 +466,7 @@
         localStorage.setItem('vvn_session', JSON.stringify({ username: user.username }));
         state.currentUser = user;
         renderMessenger();
+        resetAutoLock();
         return true;
     }
 
@@ -375,9 +480,9 @@
             return false;
         }
         const newUser = {
-            username,
+            username: username,
             displayName: displayName || username,
-            password,
+            password: password,
             bio: '',
             online: true,
             created: Date.now(),
@@ -387,9 +492,11 @@
         state.localCache.users = users;
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         await pushToRemote();
+
         localStorage.setItem('vvn_session', JSON.stringify({ username: newUser.username }));
         state.currentUser = newUser;
         renderMessenger();
+        resetAutoLock();
         return true;
     }
 
@@ -405,7 +512,9 @@
         if (!user) { logout(); return; }
 
         state.currentUser = user;
-        if (DOM.sidebarUsername) DOM.sidebarUsername.textContent = user.displayName || user.username;
+        if (DOM.sidebarUsername) {
+            DOM.sidebarUsername.textContent = user.displayName || user.username;
+        }
         renderChatList();
 
         if (state.currentChatPartner) {
@@ -413,6 +522,7 @@
         } else {
             showPlaceholder();
         }
+        updateMobileView();
     }
 
     function logout() {
@@ -420,8 +530,28 @@
         state.currentUser = null;
         state.currentChatPartner = null;
         if (state.syncInterval) clearInterval(state.syncInterval);
+        if (autoLockTimeout) clearTimeout(autoLockTimeout);
         if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
         if (DOM.messenger) DOM.messenger.style.display = 'none';
+    }
+
+    // ---------- AUTO LOCK ----------
+    function resetAutoLock() {
+        if (autoLockTimeout) clearTimeout(autoLockTimeout);
+        const lockTime = parseInt(state.settings.autoLock);
+        if (lockTime && lockTime !== 'never') {
+            autoLockTimeout = setTimeout(function() {
+                if (state.currentUser) {
+                    logout();
+                    alert('Auto-locked due to inactivity.');
+                }
+            }, lockTime * 60 * 1000);
+        }
+    }
+
+    function updateActivity() {
+        lastActivity = Date.now();
+        resetAutoLock();
     }
 
     // ---------- CHAT LIST ----------
@@ -429,10 +559,12 @@
         if (!state.currentUser || !DOM.chatList) return;
         const chats = state.localCache.chats;
         const messages = state.localCache.messages;
-        let chatKeys = Object.keys(chats).filter(k => k.includes(state.currentUser.username));
+        let chatKeys = Object.keys(chats).filter(function(k) {
+            return k.includes(state.currentUser.username);
+        });
 
-        const blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
-        chatKeys = chatKeys.filter(k => {
+        blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
+        chatKeys = chatKeys.filter(function(k) {
             const parts = k.split('_');
             const partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
             return !blockedUsers.includes(partner);
@@ -442,17 +574,19 @@
 
         let html = '';
         if (chatKeys.length === 0) {
-            html = `<div class="empty-chats">No chats yet. Search for users above.</div>`;
+            html = '<div class="empty-chats">No chats yet. Search for users above.</div>';
         } else {
-            const sorted = chatKeys.sort((a, b) => {
+            const sorted = chatKeys.sort(function(a, b) {
                 const partsA = a.split('_');
                 const partsB = b.split('_');
                 const partnerA = partsA[0] === state.currentUser.username ? partsA[1] : partsA[0];
                 const partnerB = partsB[0] === state.currentUser.username ? partsB[1] : partsB[0];
                 const isPinnedA = pinnedContacts.includes(partnerA);
                 const isPinnedB = pinnedContacts.includes(partnerB);
+                
                 if (isPinnedA && !isPinnedB) return -1;
                 if (!isPinnedA && isPinnedB) return 1;
+                
                 const ma = messages[a] || [];
                 const mb = messages[b] || [];
                 return (mb.length ? mb[mb.length-1].timestamp : 0) - (ma.length ? ma[ma.length-1].timestamp : 0);
@@ -467,25 +601,26 @@
                 const time = last ? formatTime(last.timestamp) : '';
                 const pUser = getUserByUsername(partner);
                 const tags = getUserTags(partner);
-                const tagHtml = tags.map(t => `<span class="tag">${t.label}</span>`).join('');
+                const tagHtml = tags.map(function(t) { return '<span class="tag">' + t.label + '</span>'; }).join('');
                 const isPinned = pinnedContacts.includes(partner);
-                const displayName = pUser?.displayName || partner;
+                const displayName = getDisplayName(partner);
 
-                html += `<div class="chat-item ${partner === state.currentChatPartner ? 'active' : ''}" data-partner="${partner}">
-                    <div class="avatar">${partner.charAt(0).toUpperCase()}</div>
-                    <div class="chat-info">
-                        <div class="cname">${displayName} ${tagHtml} ${isPinned ? '📌' : ''}</div>
-                        <div class="preview">${preview}</div>
-                    </div>
-                    <div class="time">${time}</div>
-                </div>`;
+                html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
+                html += '<div class="avatar">' + partner.charAt(0).toUpperCase() + '</div>';
+                html += '<div class="chat-info">';
+                html += '<div class="cname">' + displayName + ' ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
+                html += '<div class="preview">' + preview + '</div>';
+                html += '</div>';
+                html += '<div class="time">' + time + '</div>';
+                html += '</div>';
             }
         }
         DOM.chatList.innerHTML = html;
 
-        document.querySelectorAll('.chat-item').forEach(el => {
+        document.querySelectorAll('.chat-item').forEach(function(el) {
             el.addEventListener('click', function() {
                 openChat(this.dataset.partner);
+                updateActivity();
             });
         });
     }
@@ -494,7 +629,6 @@
     function openChat(partnerUsername) {
         if (!state.currentUser) return;
         
-        const blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
         if (blockedUsers.includes(partnerUsername)) {
             alert('This user is blocked. Unblock them to chat.');
             return;
@@ -509,7 +643,7 @@
         if (DOM.chatHeader) DOM.chatHeader.style.display = 'flex';
         if (DOM.chatInputBar) DOM.chatInputBar.style.display = 'flex';
 
-        const displayName = partner.displayName || partnerUsername;
+        const displayName = getDisplayName(partnerUsername);
         if (DOM.chatPartnerName) DOM.chatPartnerName.textContent = displayName;
         if (DOM.chatPartnerStatus) DOM.chatPartnerStatus.textContent = partner.online ? 'Online' : 'Offline';
         if (DOM.chatAvatar) DOM.chatAvatar.textContent = partner.username.charAt(0).toUpperCase();
@@ -526,25 +660,29 @@
             pushToRemote();
         }
         
-        // Show pinned messages
-        const pinnedMessages = JSON.parse(localStorage.getItem('vvn_pinned') || '{}');
         const pinned = pinnedMessages[chatKey] || [];
         if (pinned.length > 0) {
-            DOM.pinnedDock.style.display = 'block';
-            DOM.pinnedMessagePreview.textContent = `${pinned[pinned.length-1].sender}: ${pinned[pinned.length-1].text || '📎 File'}`;
+            showPinnedDock(chatKey);
         } else {
             DOM.pinnedDock.style.display = 'none';
         }
         
-        // Apply device-specific layout
-        if (state.deviceType === 'mobile') {
-            document.getElementById('sidebar').classList.add('hide-mobile');
-            DOM.chatArea.classList.add('active-mobile');
+        if (DOM.blockUserBtn && DOM.unblockUserBtn) {
+            if (blockedUsers.includes(partnerUsername)) {
+                DOM.blockUserBtn.style.display = 'none';
+                DOM.unblockUserBtn.style.display = 'inline-flex';
+            } else {
+                DOM.blockUserBtn.style.display = 'inline-flex';
+                DOM.unblockUserBtn.style.display = 'none';
+            }
         }
         
+        applyChatBackground();
         renderChatList();
+        updateMobileView();
         scrollToBottom();
         clearSelection();
+        closeDropdown();
     }
 
     function renderMessages(msgs) {
@@ -556,69 +694,88 @@
         }
         for (let i = 0; i < msgs.length; i++) {
             const msg = msgs[i];
-            const msgId = `${msg.timestamp}-${i}`;
+            const msgId = msg.timestamp + '-' + i;
             const div = document.createElement('div');
             const isOutgoing = msg.sender === state.currentUser.username;
-            const bubbleStyle = localStorage.getItem('vvn_bubble_style') || 'rounded';
-            div.className = `message ${isOutgoing ? 'outgoing' : 'incoming'} bubble-${bubbleStyle}`;
+            div.className = 'message ' + (isOutgoing ? 'outgoing' : 'incoming') + ' bubble-' + chatSettings.bubbleStyle;
             div.dataset.msgId = msgId;
             
             let content = '';
             if (msg.file) {
-                content += `<div class="file-content">`;
+                content += '<div class="file-content">';
                 if (msg.file.type === 'image') {
-                    content += `<img src="${msg.file.data}" alt="Image" />`;
+                    content += '<img src="' + msg.file.data + '" alt="Image" />';
                 } else if (msg.file.type === 'video') {
-                    content += `<video controls><source src="${msg.file.data}" /></video>`;
+                    content += '<video controls><source src="' + msg.file.data + '" /></video>';
                 }
-                content += `</div>`;
+                content += '</div>';
                 if (msg.file.caption) {
-                    content += `<div class="file-caption">${msg.file.caption}</div>`;
+                    content += '<div class="file-caption">' + msg.file.caption + '</div>';
                 }
             } else {
                 content = msg.text || '';
             }
             
-            div.innerHTML = `
-                <div class="selection-circle"></div>
-                ${content}
-                <div class="time">${formatTime(msg.timestamp)}</div>
-            `;
+            div.innerHTML = '<div class="selection-circle"></div>' + content + '<div class="time">' + formatTime(msg.timestamp) + '</div>';
             DOM.chatMessages.appendChild(div);
         }
         scrollToBottom();
     }
 
     function scrollToBottom() {
-        setTimeout(() => {
-            if (DOM.chatMessages) DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+        setTimeout(function() {
+            if (DOM.chatMessages) {
+                DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+            }
         }, 50);
     }
 
     function showPlaceholder() {
         if (DOM.chatActive) DOM.chatActive.style.display = 'none';
         if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'flex';
-        if (state.deviceType === 'mobile') {
-            document.getElementById('sidebar').classList.remove('hide-mobile');
-            DOM.chatArea.classList.remove('active-mobile');
+        if (state.isMobile) {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.remove('hide-mobile');
+            if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
         }
     }
 
     // ---------- SEND MESSAGE ----------
     async function sendMessage() {
         if (!state.currentUser || !state.currentChatPartner) return;
+        if (!DOM.messageInput) return;
         const text = DOM.messageInput.value.trim();
-        if (!text) return;
+        if (!text && pendingFiles.length === 0) return;
 
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages;
         if (!messages[chatKey]) messages[chatKey] = [];
 
-        messages[chatKey].push({
-            sender: state.currentUser.username,
-            text: text,
-            timestamp: Date.now()
-        });
+        if (pendingFiles.length > 0) {
+            const caption = DOM.fileCaption ? DOM.fileCaption.value.trim() : '';
+            for (const file of pendingFiles) {
+                messages[chatKey].push({
+                    sender: state.currentUser.username,
+                    timestamp: Date.now(),
+                    file: {
+                        type: file.type,
+                        data: file.data,
+                        caption: caption
+                    }
+                });
+            }
+            pendingFiles = [];
+            if (DOM.filePreviewContainer) DOM.filePreviewContainer.innerHTML = '';
+            if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
+            if (DOM.fileCaption) DOM.fileCaption.value = '';
+            if (DOM.fileModal) DOM.fileModal.classList.remove('active');
+        } else {
+            messages[chatKey].push({
+                sender: state.currentUser.username,
+                timestamp: Date.now(),
+                text: text
+            });
+        }
 
         state.localCache.messages = messages;
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
@@ -630,14 +787,591 @@
         }
 
         await pushToRemote();
+
         renderMessages(messages[chatKey]);
         renderChatList();
-        DOM.messageInput.value = '';
+        if (DOM.messageInput) DOM.messageInput.value = '';
         scrollToBottom();
+        updateActivity();
     }
 
-    // ---------- FILE UPLOAD ----------
-    let pendingFiles = [];
+    // ---------- SEARCH ----------
+    function searchUsers(query) {
+        if (!query.trim() || !DOM.searchResults) {
+            DOM.searchResults.style.display = 'none';
+            return;
+        }
+        const users = state.localCache.users;
+        const q = query.toLowerCase();
+        const found = users.filter(function(u) {
+            return u.username !== state.currentUser.username &&
+                !blockedUsers.includes(u.username) &&
+                (u.username.toLowerCase().includes(q) ||
+                 (u.displayName && u.displayName.toLowerCase().includes(q)));
+        });
+
+        if (found.length === 0) {
+            DOM.searchResults.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:0.85rem;">No users found</div>';
+            DOM.searchResults.style.display = 'block';
+            return;
+        }
+
+        let html = '';
+        for (const u of found) {
+            const tags = getUserTags(u.username);
+            const tagHtml = tags.map(function(t) { return '<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">' + t.label + '</span>'; }).join('');
+            html += '<div class="search-result-item" data-username="' + u.username + '">';
+            html += '<div class="avatar">' + u.username.charAt(0).toUpperCase() + '</div>';
+            html += '<div class="info">';
+            html += '<div class="uname">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
+            html += '<div class="email">@' + u.username + '</div>';
+            html += '</div></div>';
+        }
+        DOM.searchResults.innerHTML = html;
+        DOM.searchResults.style.display = 'block';
+
+        document.querySelectorAll('.search-result-item').forEach(function(el) {
+            el.addEventListener('click', function() {
+                openChat(this.dataset.username);
+                DOM.searchResults.style.display = 'none';
+                if (DOM.searchInput) DOM.searchInput.value = '';
+                updateActivity();
+            });
+        });
+    }
+
+    // ---------- PROFILE MODAL ----------
+    function showProfile(username) {
+        const user = getUserByUsername(username);
+        if (!user) return;
+
+        const tags = getUserTags(username);
+        if (DOM.profileTags) {
+            DOM.profileTags.innerHTML = tags.map(function(t) {
+                return '<span class="tag ' + t.class + '">' + t.label + '</span>';
+            }).join('');
+        }
+
+        if (DOM.profileDisplayName) DOM.profileDisplayName.textContent = user.displayName || user.username;
+        if (DOM.profileUsername) DOM.profileUsername.textContent = '@' + user.username;
+        if (DOM.profileBio) DOM.profileBio.textContent = user.bio || 'No bio yet';
+        if (DOM.profileJoined) DOM.profileJoined.textContent = 'Joined: ' + formatDate(user.created || Date.now());
+        if (DOM.profileAge) DOM.profileAge.textContent = 'Age: ' + getAge(user.created || Date.now());
+        if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || 'icons/user.png';
+        if (DOM.profileUserID) DOM.profileUserID.textContent = 'ID: ' + user.username + '-' + (user.created || '').toString().slice(-6);
+
+        if (state.settings.devMode && CONFIG.DEV_PIN) {
+            const pinCheck = prompt('Enter developer PIN to view password:');
+            if (pinCheck === CONFIG.DEV_PIN && DOM.profilePassword) {
+                DOM.profilePassword.style.display = 'block';
+                DOM.profilePassword.textContent = 'Password: ' + user.password;
+            }
+        } else if (DOM.profilePassword) {
+            DOM.profilePassword.style.display = 'none';
+        }
+
+        if (DOM.profileModal) DOM.profileModal.classList.add('active');
+        closeDropdown();
+    }
+
+    // ---------- SETTINGS ----------
+    function openSettings() {
+        const user = state.currentUser;
+        if (!user) return;
+
+        if (DOM.settingsDisplayName) DOM.settingsDisplayName.value = user.displayName || '';
+        if (DOM.settingsUsername) DOM.settingsUsername.value = user.username;
+        if (DOM.settingsPassword) DOM.settingsPassword.value = '';
+        if (DOM.settingsBio) DOM.settingsBio.value = user.bio || '';
+        if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.png';
+
+        const savedSettings = localStorage.getItem('vvn_settings');
+        if (savedSettings) {
+            state.settings = JSON.parse(savedSettings);
+        }
+
+        if (DOM.e2eeToggle) DOM.e2eeToggle.checked = state.settings.e2ee;
+        if (DOM.twofaToggle) DOM.twofaToggle.checked = state.settings.twofa;
+        if (DOM.privacyToggle) DOM.privacyToggle.checked = state.settings.privacy;
+        if (DOM.devToggle) DOM.devToggle.checked = state.settings.devMode;
+
+        if (DOM.e2eeStatus) DOM.e2eeStatus.textContent = state.settings.e2ee ? 'Enabled' : 'Disabled';
+        if (DOM.twofaStatus) DOM.twofaStatus.textContent = state.settings.twofa ? 'Enabled' : 'Disabled';
+        if (DOM.privacyStatus) DOM.privacyStatus.textContent = state.settings.privacy ? 'Enabled' : 'Disabled';
+        if (DOM.devStatus) DOM.devStatus.textContent = state.settings.devMode ? 'Enabled' : 'Disabled';
+
+        if (DOM.autoLockTimer) DOM.autoLockTimer.value = state.settings.autoLock || 'never';
+        if (DOM.sessionTimeout) DOM.sessionTimeout.value = state.settings.sessionTimeout || 'never';
+        if (DOM.messageHistory) DOM.messageHistory.value = state.settings.messageHistory || 'forever';
+        if (DOM.messageDelivery) DOM.messageDelivery.value = state.settings.messageDelivery || 'e2ee';
+
+        applyTheme(state.settings.theme || 'dark');
+
+        if (DOM.settingsModal) DOM.settingsModal.classList.add('active');
+        closeDropdown();
+    }
+
+    async function saveSettings() {
+        const user = state.currentUser;
+        if (!user) return;
+
+        const displayName = DOM.settingsDisplayName ? DOM.settingsDisplayName.value.trim() || user.username : user.username;
+        const username = DOM.settingsUsername ? DOM.settingsUsername.value.trim() : user.username;
+        const password = DOM.settingsPassword ? DOM.settingsPassword.value.trim() : '';
+        const bio = DOM.settingsBio ? DOM.settingsBio.value.trim() : '';
+
+        if (username !== user.username) {
+            const existing = state.localCache.users.find(function(u) {
+                return u.username === username && u.username !== user.username;
+            });
+            if (existing) {
+                alert('Username already taken');
+                return;
+            }
+        }
+
+        const userIndex = state.localCache.users.findIndex(function(u) {
+            return u.username === user.username;
+        });
+        if (userIndex !== -1) {
+            state.localCache.users[userIndex] = {
+                ...state.localCache.users[userIndex],
+                displayName: displayName,
+                username: username,
+                password: password || state.localCache.users[userIndex].password,
+                bio: bio
+            };
+
+            state.currentUser = state.localCache.users[userIndex];
+
+            if (username !== user.username) {
+                const session = JSON.parse(localStorage.getItem('vvn_session'));
+                if (session) {
+                    session.username = username;
+                    localStorage.setItem('vvn_session', JSON.stringify(session));
+                }
+            }
+
+            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+            await pushToRemote();
+
+            renderMessenger();
+            if (DOM.settingsModal) DOM.settingsModal.classList.remove('active');
+            alert('Settings saved successfully!');
+        }
+    }
+
+    // ---------- THEME FUNCTIONS ----------
+    function applyTheme(theme) {
+        state.settings.theme = theme;
+        localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+        
+        document.querySelectorAll('.theme-card').forEach(function(card) {
+            card.classList.remove('active');
+            if (card.dataset.theme === theme) {
+                card.classList.add('active');
+            }
+        });
+
+        const root = document.documentElement;
+        
+        root.style.setProperty('--bg-primary', '');
+        root.style.setProperty('--bg-secondary', '');
+        root.style.setProperty('--bg-tertiary', '');
+        root.style.setProperty('--bg-card', '');
+        root.style.setProperty('--text-primary', '');
+        root.style.setProperty('--text-secondary', '');
+        root.style.setProperty('--dark-purple', '');
+        root.style.setProperty('--dark-purple-glow', '');
+
+        if (theme === 'dark') {
+            root.style.setProperty('--bg-primary', '#0a0a0a');
+            root.style.setProperty('--bg-secondary', '#141414');
+            root.style.setProperty('--bg-tertiary', '#1a1a1a');
+            root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.75)');
+            root.style.setProperty('--text-primary', '#f0f0f0');
+            root.style.setProperty('--text-secondary', '#999');
+            root.style.setProperty('--dark-purple', '#2d1b69');
+            root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
+            document.body.classList.remove('light-theme');
+        } else if (theme === 'light') {
+            root.style.setProperty('--bg-primary', '#f5f5f5');
+            root.style.setProperty('--bg-secondary', '#ffffff');
+            root.style.setProperty('--bg-tertiary', '#f0f0f0');
+            root.style.setProperty('--bg-card', 'rgba(255, 255, 255, 0.8)');
+            root.style.setProperty('--text-primary', '#1a1a1a');
+            root.style.setProperty('--text-secondary', '#666');
+            root.style.setProperty('--dark-purple', '#4a2b8a');
+            root.style.setProperty('--dark-purple-glow', 'rgba(74, 43, 138, 0.2)');
+            document.body.classList.add('light-theme');
+        } else if (theme === 'midnight') {
+            root.style.setProperty('--bg-primary', '#0a0e1a');
+            root.style.setProperty('--bg-secondary', '#0f1524');
+            root.style.setProperty('--bg-tertiary', '#141c2e');
+            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.75)');
+            root.style.setProperty('--text-primary', '#7b9ac9');
+            root.style.setProperty('--text-secondary', '#5a7a9a');
+            root.style.setProperty('--dark-purple', '#1a2a5a');
+            root.style.setProperty('--dark-purple-glow', 'rgba(26, 42, 90, 0.3)');
+            document.body.classList.remove('light-theme');
+        } else if (theme === 'forest') {
+            root.style.setProperty('--bg-primary', '#0d1a0d');
+            root.style.setProperty('--bg-secondary', '#122412');
+            root.style.setProperty('--bg-tertiary', '#1a2e1a');
+            root.style.setProperty('--bg-card', 'rgba(31, 58, 31, 0.75)');
+            root.style.setProperty('--text-primary', '#7bc97b');
+            root.style.setProperty('--text-secondary', '#5a9a5a');
+            root.style.setProperty('--dark-purple', '#1a4a1a');
+            root.style.setProperty('--dark-purple-glow', 'rgba(26, 74, 26, 0.3)');
+            document.body.classList.remove('light-theme');
+        } else if (theme === 'ocean') {
+            root.style.setProperty('--bg-primary', '#0a0d1a');
+            root.style.setProperty('--bg-secondary', '#0f1524');
+            root.style.setProperty('--bg-tertiary', '#141c2e');
+            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.75)');
+            root.style.setProperty('--text-primary', '#7b9ac9');
+            root.style.setProperty('--text-secondary', '#5a7a9a');
+            root.style.setProperty('--dark-purple', '#1a3a6a');
+            root.style.setProperty('--dark-purple-glow', 'rgba(26, 58, 106, 0.3)');
+            document.body.classList.remove('light-theme');
+        } else if (theme === 'custom') {
+            const customTheme = localStorage.getItem('vvn_custom_theme');
+            if (customTheme) {
+                const ct = JSON.parse(customTheme);
+                root.style.setProperty('--dark-purple', ct.primary || '#2d1b69');
+                root.style.setProperty('--bg-secondary', ct.secondary || '#141414');
+                root.style.setProperty('--text-primary', ct.text || '#f0f0f0');
+                root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
+                root.style.setProperty('--bg-primary', '#0a0a0a');
+                root.style.setProperty('--bg-tertiary', '#1a1a1a');
+                root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.75)');
+                root.style.setProperty('--text-secondary', '#999');
+            }
+            if (document.getElementById('customThemeOptions')) {
+                document.getElementById('customThemeOptions').style.display = 'block';
+            }
+            document.body.classList.remove('light-theme');
+            return;
+        }
+        if (document.getElementById('customThemeOptions')) {
+            document.getElementById('customThemeOptions').style.display = 'none';
+        }
+    }
+
+    function applyCustomTheme() {
+        const primary = document.getElementById('primaryColor')?.value || '#2d1b69';
+        const secondary = document.getElementById('secondaryColor')?.value || '#141414';
+        const text = document.getElementById('textColor')?.value || '#f0f0f0';
+        const accent = document.getElementById('accentColor')?.value || '#2d1b69';
+        
+        const root = document.documentElement;
+        root.style.setProperty('--dark-purple', primary);
+        root.style.setProperty('--bg-secondary', secondary);
+        root.style.setProperty('--text-primary', text);
+        root.style.setProperty('--accent', accent);
+        root.style.setProperty('--accent-hover', accent);
+        root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
+        
+        localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text, accent }));
+        state.settings.theme = 'custom';
+        localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+        alert('Custom theme applied!');
+    }
+
+    // ---------- SELECTION FUNCTIONS ----------
+    function toggleSelectionMode() {
+        selectionMode = !selectionMode;
+        if (selectionMode) {
+            if (DOM.selectBtn) DOM.selectBtn.classList.add('active');
+            document.querySelectorAll('.message').forEach(function(msg) {
+                msg.classList.add('selectable');
+            });
+            if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('active');
+        } else {
+            clearSelection();
+            if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
+            document.querySelectorAll('.message').forEach(function(msg) {
+                msg.classList.remove('selectable');
+            });
+            if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
+        }
+        closeDropdown();
+    }
+
+    function toggleMessageSelection(messageId) {
+        if (!selectionMode) return;
+        const msgElement = document.querySelector('[data-msg-id="' + messageId + '"]');
+        if (!msgElement) return;
+        
+        if (selectedMessages.has(messageId)) {
+            selectedMessages.delete(messageId);
+            msgElement.classList.remove('selected');
+        } else {
+            selectedMessages.add(messageId);
+            msgElement.classList.add('selected');
+        }
+        updateSelectedCount();
+    }
+
+    function clearSelection() {
+        selectedMessages.clear();
+        document.querySelectorAll('.message.selected').forEach(function(el) {
+            el.classList.remove('selected');
+        });
+        updateSelectedCount();
+        selectionMode = false;
+        if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
+        document.querySelectorAll('.message').forEach(function(msg) {
+            msg.classList.remove('selectable');
+        });
+        if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
+    }
+
+    function updateSelectedCount() {
+        if (DOM.selectedCount) {
+            DOM.selectedCount.textContent = selectedMessages.size + ' selected';
+        }
+    }
+
+    // ---------- DELETE FUNCTIONS ----------
+    function showDeleteModal() {
+        if (selectedMessages.size === 0) return;
+        if (DOM.deleteModal) DOM.deleteModal.classList.add('active');
+    }
+
+    function deleteMessages(forEveryone) {
+        if (forEveryone === undefined) forEveryone = false;
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        
+        const remaining = messages.filter(function(msg, index) {
+            const msgId = msg.timestamp + '-' + index;
+            return !selectedMessages.has(msgId);
+        });
+        
+        state.localCache.messages[chatKey] = remaining;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        
+        clearSelection();
+        if (DOM.deleteModal) DOM.deleteModal.classList.remove('active');
+        renderMessages(remaining);
+        renderChatList();
+    }
+
+    // ---------- PIN FUNCTIONS ----------
+    function pinSelectedMessages() {
+        if (selectedMessages.size === 0) return;
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        
+        const firstSelected = Array.from(selectedMessages)[0];
+        const parts = firstSelected.split('-');
+        const timestamp = parseInt(parts[0]);
+        const index = parseInt(parts[1]);
+        
+        const msg = messages.find(function(m, i) {
+            return m.timestamp === timestamp && i === index;
+        });
+        if (msg) {
+            if (!pinnedMessages[chatKey]) pinnedMessages[chatKey] = [];
+            pinnedMessages[chatKey].push(msg);
+            showPinnedDock(chatKey);
+            localStorage.setItem('vvn_pinned', JSON.stringify(pinnedMessages));
+        }
+        clearSelection();
+    }
+
+    function showPinnedDock(chatKey) {
+        const pinned = pinnedMessages[chatKey] || [];
+        if (pinned.length === 0 || !DOM.pinnedDock) {
+            DOM.pinnedDock.style.display = 'none';
+            return;
+        }
+        DOM.pinnedDock.style.display = 'block';
+        const lastPinned = pinned[pinned.length - 1];
+        if (DOM.pinnedMessagePreview) {
+            DOM.pinnedMessagePreview.textContent = getDisplayName(lastPinned.sender) + ': ' + (lastPinned.text || '📎 File');
+        }
+    }
+
+    function unpinMessage(chatKey) {
+        if (pinnedMessages[chatKey]) {
+            pinnedMessages[chatKey].pop();
+            if (pinnedMessages[chatKey].length === 0) {
+                delete pinnedMessages[chatKey];
+                if (DOM.pinnedDock) DOM.pinnedDock.style.display = 'none';
+            } else {
+                showPinnedDock(chatKey);
+            }
+            localStorage.setItem('vvn_pinned', JSON.stringify(pinnedMessages));
+        }
+    }
+
+    function scrollToPinnedMessage() {
+        document.querySelectorAll('.message').forEach(function(el) {
+            el.classList.remove('highlight');
+        });
+        const firstMsg = document.querySelector('.message');
+        if (firstMsg) {
+            firstMsg.classList.add('highlight');
+            firstMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(function() {
+                firstMsg.classList.remove('highlight');
+            }, 2000);
+        }
+    }
+
+    // ---------- USER SETTINGS FUNCTIONS ----------
+    function openUserSettings() {
+        if (DOM.userSettingsModal) DOM.userSettingsModal.classList.add('active');
+        closeDropdown();
+    }
+
+    function renameContact() {
+        const newName = prompt('Enter new name for this contact:', 
+            contactCustomNames[state.currentChatPartner] || state.currentChatPartner);
+        if (newName && newName.trim()) {
+            contactCustomNames[state.currentChatPartner] = newName.trim();
+            localStorage.setItem('vvn_contact_names', JSON.stringify(contactCustomNames));
+            renderChatList();
+            if (DOM.chatPartnerName) {
+                DOM.chatPartnerName.textContent = newName.trim();
+            }
+        }
+    }
+
+    function deleteContact() {
+        if (confirm('Delete contact ' + state.currentChatPartner + '? This will remove the chat from your list.')) {
+            const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+            delete state.localCache.chats[chatKey];
+            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+            pushToRemote();
+            state.currentChatPartner = null;
+            showPlaceholder();
+            renderChatList();
+            if (DOM.userSettingsModal) DOM.userSettingsModal.classList.remove('active');
+        }
+    }
+
+    function blockUser() {
+        if (confirm('Block ' + state.currentChatPartner + '? You won\'t receive messages from them.')) {
+            if (!blockedUsers.includes(state.currentChatPartner)) {
+                blockedUsers.push(state.currentChatPartner);
+                localStorage.setItem('vvn_blocked', JSON.stringify(blockedUsers));
+                if (DOM.blockUserBtn) DOM.blockUserBtn.style.display = 'none';
+                if (DOM.unblockUserBtn) DOM.unblockUserBtn.style.display = 'inline-flex';
+            }
+        }
+    }
+
+    function unblockUser() {
+        const index = blockedUsers.indexOf(state.currentChatPartner);
+        if (index > -1) {
+            blockedUsers.splice(index, 1);
+            localStorage.setItem('vvn_blocked', JSON.stringify(blockedUsers));
+            if (DOM.blockUserBtn) DOM.blockUserBtn.style.display = 'inline-flex';
+            if (DOM.unblockUserBtn) DOM.unblockUserBtn.style.display = 'none';
+        }
+    }
+
+    function pinContact() {
+        const pinnedContacts = JSON.parse(localStorage.getItem('vvn_pinned_contacts') || '[]');
+        if (!pinnedContacts.includes(state.currentChatPartner)) {
+            pinnedContacts.unshift(state.currentChatPartner);
+            localStorage.setItem('vvn_pinned_contacts', JSON.stringify(pinnedContacts));
+            renderChatList();
+        }
+    }
+
+    // ---------- CHAT SETTINGS FUNCTIONS ----------
+    function openChatSettings() {
+        if (DOM.chatSettingsModal) DOM.chatSettingsModal.classList.add('active');
+        closeDropdown();
+    }
+
+    function changeBubbleStyle(style) {
+        chatSettings.bubbleStyle = style;
+        localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
+        document.querySelectorAll('.message').forEach(function(msg) {
+            msg.className = msg.className.replace(/bubble-\w+/g, '');
+            msg.classList.add('bubble-' + style);
+        });
+        document.querySelectorAll('.bubble-style').forEach(function(btn) {
+            btn.classList.remove('active');
+            if (btn.dataset.style === style) btn.classList.add('active');
+        });
+    }
+
+    function changeChatBackground(type) {
+        if (type === 'custom') {
+            if (DOM.bgUpload) DOM.bgUpload.click();
+        } else {
+            chatSettings.background = type;
+            chatSettings.bgImage = null;
+            if (DOM.chatMessages) {
+                DOM.chatMessages.style.background = '';
+                DOM.chatMessages.style.backgroundImage = '';
+            }
+            localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
+        }
+    }
+
+    function handleBackgroundUpload(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                chatSettings.background = 'custom';
+                chatSettings.bgImage = ev.target.result;
+                if (DOM.chatMessages) {
+                    DOM.chatMessages.style.backgroundImage = 'url(' + ev.target.result + ')';
+                    DOM.chatMessages.style.backgroundSize = 'cover';
+                    DOM.chatMessages.style.backgroundPosition = 'center';
+                }
+                localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function applyChatBackground() {
+        if (chatSettings.background === 'custom' && chatSettings.bgImage && DOM.chatMessages) {
+            DOM.chatMessages.style.backgroundImage = 'url(' + chatSettings.bgImage + ')';
+            DOM.chatMessages.style.backgroundSize = 'cover';
+            DOM.chatMessages.style.backgroundPosition = 'center';
+        } else if (DOM.chatMessages) {
+            DOM.chatMessages.style.background = '';
+            DOM.chatMessages.style.backgroundImage = '';
+        }
+    }
+
+    function createNote() {
+        const note = prompt('Enter your note:');
+        if (note && note.trim()) {
+            const notes = JSON.parse(localStorage.getItem('vvn_notes') || '[]');
+            notes.push({
+                id: Date.now(),
+                text: note.trim(),
+                created: Date.now()
+            });
+            localStorage.setItem('vvn_notes', JSON.stringify(notes));
+            alert('Note saved!');
+        }
+    }
+
+    // ---------- FILE ATTACHMENT ----------
+    function openFileModal() {
+        if (DOM.fileModal) DOM.fileModal.classList.add('active');
+        if (DOM.filePreviewContainer) DOM.filePreviewContainer.innerHTML = '';
+        if (DOM.fileCaption) DOM.fileCaption.value = '';
+        if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
+        pendingFiles = [];
+    }
+
+    function handleFileSelect() {
+        if (DOM.fileInput) DOM.fileInput.click();
+    }
 
     function handleFileInput(e) {
         const files = e.target.files;
@@ -655,361 +1389,74 @@
                     name: file.name
                 });
                 
-                // Show preview
-                const container = DOM.filePreviewContainer;
-                const item = document.createElement('div');
-                item.className = 'file-preview-item';
-                const idx = pendingFiles.length - 1;
-                item.innerHTML = `
-                    ${fileType === 'image' ? `<img src="${data}" />` : `<video controls><source src="${data}" /></video>`}
-                    <button class="remove-file" data-index="${idx}">×</button>
-                `;
-                container.appendChild(item);
+                if (DOM.filePreviewContainer) {
+                    const item = document.createElement('div');
+                    item.className = 'file-preview-item';
+                    const index = pendingFiles.length - 1;
+                    item.innerHTML = (fileType === 'image' ? '<img src="' + data + '" />' : '<video controls><source src="' + data + '" /></video>') +
+                        '<button class="remove-file" data-index="' + index + '">×</button>';
+                    DOM.filePreviewContainer.appendChild(item);
+                    
+                    // Add remove handler
+                    item.querySelector('.remove-file').addEventListener('click', function() {
+                        const idx = parseInt(this.dataset.index);
+                        pendingFiles.splice(idx, 1);
+                        this.parentElement.remove();
+                        if (pendingFiles.length === 0 && DOM.fileClearBtn) {
+                            DOM.fileClearBtn.style.display = 'none';
+                        }
+                    });
+                }
                 
-                // Remove handler
-                item.querySelector('.remove-file').addEventListener('click', function() {
-                    const index = parseInt(this.dataset.index);
-                    pendingFiles.splice(index, 1);
-                    this.closest('.file-preview-item').remove();
-                    if (pendingFiles.length === 0) {
-                        DOM.fileClearBtn.style.display = 'none';
-                    }
-                });
-                
-                DOM.fileClearBtn.style.display = 'inline-flex';
+                if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'inline-flex';
             };
             reader.readAsDataURL(file);
         }
         e.target.value = '';
     }
 
-    async function sendFiles() {
-        if (!pendingFiles.length || !state.currentUser || !state.currentChatPartner) return;
-        
-        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        const messages = state.localCache.messages;
-        if (!messages[chatKey]) messages[chatKey] = [];
-        
-        const caption = DOM.fileCaption.value.trim();
-        
-        for (const file of pendingFiles) {
-            messages[chatKey].push({
-                sender: state.currentUser.username,
-                timestamp: Date.now(),
-                file: {
-                    type: file.type,
-                    data: file.data,
-                    caption: caption
-                }
-            });
-        }
-        
-        state.localCache.messages = messages;
-        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        await pushToRemote();
-        
+    function clearAllFiles() {
         pendingFiles = [];
-        DOM.filePreviewContainer.innerHTML = '';
-        DOM.fileClearBtn.style.display = 'none';
-        DOM.fileCaption.value = '';
-        DOM.fileModal.classList.remove('active');
-        
-        renderMessages(messages[chatKey]);
-        renderChatList();
-        scrollToBottom();
-    }
-
-    // ---------- SELECTION ----------
-    let selectionMode = false;
-    let selectedMessages = new Set();
-
-    function toggleSelectionMode() {
-        selectionMode = !selectionMode;
-        if (selectionMode) {
-            DOM.selectBtn.classList.add('active');
-            document.querySelectorAll('.message').forEach(msg => msg.classList.add('selectable'));
-            DOM.selectionToolbar.classList.add('active');
-        } else {
-            clearSelection();
-            DOM.selectBtn.classList.remove('active');
-            document.querySelectorAll('.message').forEach(msg => msg.classList.remove('selectable'));
-            DOM.selectionToolbar.classList.remove('active');
-        }
-    }
-
-    function toggleMessageSelection(messageId) {
-        if (!selectionMode) return;
-        const msgElement = document.querySelector(`[data-msg-id="${messageId}"]`);
-        if (!msgElement) return;
-        
-        if (selectedMessages.has(messageId)) {
-            selectedMessages.delete(messageId);
-            msgElement.classList.remove('selected');
-        } else {
-            selectedMessages.add(messageId);
-            msgElement.classList.add('selected');
-        }
-        DOM.selectedCount.textContent = selectedMessages.size + ' selected';
-    }
-
-    function clearSelection() {
-        selectedMessages.clear();
-        document.querySelectorAll('.message.selected').forEach(el => el.classList.remove('selected'));
-        DOM.selectedCount.textContent = '0 selected';
-        selectionMode = false;
-        DOM.selectBtn.classList.remove('active');
-        document.querySelectorAll('.message').forEach(msg => msg.classList.remove('selectable'));
-        DOM.selectionToolbar.classList.remove('active');
-    }
-
-    function deleteSelectedMessages(forEveryone = false) {
-        if (selectedMessages.size === 0) return;
-        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        const messages = state.localCache.messages[chatKey] || [];
-        
-        const remaining = messages.filter((msg, index) => {
-            const msgId = `${msg.timestamp}-${index}`;
-            return !selectedMessages.has(msgId);
-        });
-        
-        state.localCache.messages[chatKey] = remaining;
-        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        pushToRemote();
-        
-        clearSelection();
-        DOM.deleteModal.classList.remove('active');
-        renderMessages(remaining);
-        renderChatList();
-    }
-
-    function pinSelectedMessages() {
-        if (selectedMessages.size === 0) return;
-        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        const messages = state.localCache.messages[chatKey] || [];
-        
-        const firstSelected = Array.from(selectedMessages)[0];
-        const parts = firstSelected.split('-');
-        const timestamp = parseInt(parts[0]);
-        const index = parseInt(parts[1]);
-        
-        const msg = messages.find((m, i) => m.timestamp === timestamp && i === index);
-        if (msg) {
-            const pinnedMessages = JSON.parse(localStorage.getItem('vvn_pinned') || '{}');
-            if (!pinnedMessages[chatKey]) pinnedMessages[chatKey] = [];
-            pinnedMessages[chatKey].push(msg);
-            localStorage.setItem('vvn_pinned', JSON.stringify(pinnedMessages));
-            
-            DOM.pinnedDock.style.display = 'block';
-            DOM.pinnedMessagePreview.textContent = `${msg.sender}: ${msg.text || '📎 File'}`;
-        }
-        clearSelection();
-    }
-
-    // ---------- DROPDOWN ----------
-    function toggleDropdown() {
-        DOM.dropdownMenu.classList.toggle('active');
-    }
-
-    function handleDropdownAction(action) {
-        DOM.dropdownMenu.classList.remove('active');
-        switch(action) {
-            case 'userSettings':
-                DOM.userSettingsModal.classList.add('active');
-                break;
-            case 'chatSettings':
-                DOM.chatSettingsModal.classList.add('active');
-                break;
-            case 'themeSettings':
-                DOM.settingsModal.classList.add('active');
-                document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
-                document.querySelector('.settings-tab[data-tab="themes"]').classList.add('active');
-                document.getElementById('themesSettings').classList.add('active');
-                break;
-            case 'blockUser':
-                blockUser();
-                break;
-            case 'renameContact':
-                renameContact();
-                break;
-            case 'deleteContact':
-                deleteContact();
-                break;
-        }
-    }
-
-    // ---------- USER SETTINGS ----------
-    function renameContact() {
-        const newName = prompt('Enter new name for this contact:', 
-            state.currentChatPartner);
-        if (newName && newName.trim()) {
-            const contactNames = JSON.parse(localStorage.getItem('vvn_contact_names') || '{}');
-            contactNames[state.currentChatPartner] = newName.trim();
-            localStorage.setItem('vvn_contact_names', JSON.stringify(contactNames));
-            renderChatList();
-            DOM.chatPartnerName.textContent = newName.trim();
-        }
-    }
-
-    function deleteContact() {
-        if (confirm(`Delete contact ${state.currentChatPartner}?`)) {
-            const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-            delete state.localCache.chats[chatKey];
-            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-            pushToRemote();
-            state.currentChatPartner = null;
-            showPlaceholder();
-            renderChatList();
-            DOM.userSettingsModal.classList.remove('active');
-        }
-    }
-
-    function blockUser() {
-        if (confirm(`Block ${state.currentChatPartner}?`)) {
-            const blocked = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
-            if (!blocked.includes(state.currentChatPartner)) {
-                blocked.push(state.currentChatPartner);
-                localStorage.setItem('vvn_blocked', JSON.stringify(blocked));
-                DOM.blockUserBtn.style.display = 'none';
-                DOM.unblockUserBtn.style.display = 'inline-flex';
-            }
-        }
-    }
-
-    function unblockUser() {
-        const blocked = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
-        const index = blocked.indexOf(state.currentChatPartner);
-        if (index > -1) {
-            blocked.splice(index, 1);
-            localStorage.setItem('vvn_blocked', JSON.stringify(blocked));
-            DOM.blockUserBtn.style.display = 'inline-flex';
-            DOM.unblockUserBtn.style.display = 'none';
-        }
-    }
-
-    function pinContact() {
-        const pinnedContacts = JSON.parse(localStorage.getItem('vvn_pinned_contacts') || '[]');
-        if (!pinnedContacts.includes(state.currentChatPartner)) {
-            pinnedContacts.unshift(state.currentChatPartner);
-            localStorage.setItem('vvn_pinned_contacts', JSON.stringify(pinnedContacts));
-            renderChatList();
-        }
-    }
-
-    // ---------- CHAT SETTINGS ----------
-    function changeBubbleStyle(style) {
-        localStorage.setItem('vvn_bubble_style', style);
-        document.querySelectorAll('.message').forEach(msg => {
-            msg.className = msg.className.replace(/bubble-\w+/g, '');
-            msg.classList.add('bubble-' + style);
-        });
-        document.querySelectorAll('.bubble-style').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.style === style);
-        });
-    }
-
-    // ---------- THEME ----------
-    function applyTheme(theme) {
-        const root = document.documentElement;
-        if (theme === 'dark') {
-            root.classList.remove('light-theme');
-            root.style.setProperty('--bg-primary', '#0a0a0a');
-            root.style.setProperty('--bg-secondary', '#141414');
-            root.style.setProperty('--bg-tertiary', '#1a1a1a');
-            root.style.setProperty('--text-primary', '#f0f0f0');
-            root.style.setProperty('--text-secondary', '#999');
-            root.style.setProperty('--dark-purple', '#2d1b69');
-        } else if (theme === 'light') {
-            root.classList.add('light-theme');
-            root.style.setProperty('--bg-primary', '#f5f5f5');
-            root.style.setProperty('--bg-secondary', '#ffffff');
-            root.style.setProperty('--bg-tertiary', '#f0f0f0');
-            root.style.setProperty('--text-primary', '#1a1a1a');
-            root.style.setProperty('--text-secondary', '#666');
-            root.style.setProperty('--dark-purple', '#4a2b8a');
-        } else if (theme === 'midnight') {
-            root.classList.remove('light-theme');
-            root.style.setProperty('--bg-primary', '#0a0e1a');
-            root.style.setProperty('--bg-secondary', '#0f1524');
-            root.style.setProperty('--bg-tertiary', '#141c2e');
-            root.style.setProperty('--text-primary', '#7b9ac9');
-            root.style.setProperty('--text-secondary', '#5a7a9a');
-            root.style.setProperty('--dark-purple', '#1a2a5a');
-        } else if (theme === 'forest') {
-            root.classList.remove('light-theme');
-            root.style.setProperty('--bg-primary', '#0d1a0d');
-            root.style.setProperty('--bg-secondary', '#122412');
-            root.style.setProperty('--bg-tertiary', '#1a2e1a');
-            root.style.setProperty('--text-primary', '#7bc97b');
-            root.style.setProperty('--text-secondary', '#5a9a5a');
-            root.style.setProperty('--dark-purple', '#1a4a1a');
-        } else if (theme === 'ocean') {
-            root.classList.remove('light-theme');
-            root.style.setProperty('--bg-primary', '#0a0d1a');
-            root.style.setProperty('--bg-secondary', '#0f1524');
-            root.style.setProperty('--bg-tertiary', '#141c2e');
-            root.style.setProperty('--text-primary', '#7b9ac9');
-            root.style.setProperty('--text-secondary', '#5a7a9a');
-            root.style.setProperty('--dark-purple', '#1a3a6a');
-        }
-        localStorage.setItem('vvn_theme', theme);
-    }
-
-    // ---------- SEARCH ----------
-    function searchUsers(query) {
-        if (!query.trim() || !DOM.searchResults) {
-            DOM.searchResults.style.display = 'none';
-            return;
-        }
-        const users = state.localCache.users;
-        const q = query.toLowerCase();
-        const blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
-        const found = users.filter(u =>
-            u.username !== state.currentUser.username &&
-            !blockedUsers.includes(u.username) &&
-            (u.username.toLowerCase().includes(q) ||
-             (u.displayName && u.displayName.toLowerCase().includes(q)))
-        );
-
-        if (found.length === 0) {
-            DOM.searchResults.innerHTML = `<div style="padding:10px 14px;color:var(--text-muted);font-size:0.85rem;">No users found</div>`;
-            DOM.searchResults.style.display = 'block';
-            return;
-        }
-
-        let html = '';
-        for (const u of found) {
-            const tags = getUserTags(u.username);
-            const tagHtml = tags.map(t => `<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">${t.label}</span>`).join('');
-            html += `<div class="search-result-item" data-username="${u.username}">
-                <div class="avatar">${u.username.charAt(0).toUpperCase()}</div>
-                <div class="info">
-                    <div class="uname">${u.displayName || u.username} ${tagHtml}</div>
-                    <div class="email">@${u.username}</div>
-                </div>
-            </div>`;
-        }
-        DOM.searchResults.innerHTML = html;
-        DOM.searchResults.style.display = 'block';
-
-        document.querySelectorAll('.search-result-item').forEach(el => {
-            el.addEventListener('click', function() {
-                openChat(this.dataset.username);
-                DOM.searchResults.style.display = 'none';
-                DOM.searchInput.value = '';
-            });
-        });
+        if (DOM.filePreviewContainer) DOM.filePreviewContainer.innerHTML = '';
+        if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
+        if (DOM.fileCaption) DOM.fileCaption.value = '';
     }
 
     // ---------- LOAD SAVED SETTINGS ----------
     function loadSavedSettings() {
-        const theme = localStorage.getItem('vvn_theme');
-        if (theme) applyTheme(theme);
+        const names = localStorage.getItem('vvn_contact_names');
+        if (names) contactCustomNames = JSON.parse(names);
         
-        const device = localStorage.getItem('vvn_device');
-        if (device) {
-            state.deviceType = device;
-            loadDeviceStyle(device);
+        const pinned = localStorage.getItem('vvn_pinned');
+        if (pinned) pinnedMessages = JSON.parse(pinned);
+        
+        const settings = localStorage.getItem('vvn_chat_settings');
+        if (settings) chatSettings = JSON.parse(settings);
+        
+        const blocked = localStorage.getItem('vvn_blocked');
+        if (blocked) blockedUsers = JSON.parse(blocked);
+        
+        const savedSettings = localStorage.getItem('vvn_settings');
+        if (savedSettings) {
+            state.settings = JSON.parse(savedSettings);
+        }
+    }
+
+    // ---------- MOBILE ----------
+    function updateMobileView() {
+        state.isMobile = window.innerWidth < 768;
+        const sidebar = document.getElementById('sidebar');
+        if (state.isMobile) {
+            if (state.currentChatPartner) {
+                if (sidebar) sidebar.classList.add('hide-mobile');
+                if (DOM.chatArea) DOM.chatArea.classList.add('active-mobile');
+            } else {
+                if (sidebar) sidebar.classList.remove('hide-mobile');
+                if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
+            }
+        } else {
+            if (sidebar) sidebar.classList.remove('hide-mobile');
+            if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
         }
     }
 
@@ -1017,53 +1464,24 @@
     async function init() {
         console.log('🚀 Initializing VVN...');
         
-        // Device selector
-        const savedDevice = localStorage.getItem('vvn_device');
-        if (savedDevice) {
-            DOM.deviceSelector.classList.add('hidden');
-            state.deviceType = savedDevice;
-            loadDeviceStyle(savedDevice);
-        } else {
-            DOM.deviceSelector.classList.remove('hidden');
+        if (DOM.loadingOverlay) {
+            DOM.loadingOverlay.classList.remove('hidden');
         }
-
-        DOM.confirmDeviceBtn.addEventListener('click', function() {
-            const active = document.querySelector('.device-option.active');
-            if (active) {
-                const device = active.dataset.device;
-                selectDevice(device);
-                DOM.deviceSelector.classList.add('hidden');
-                loadDeviceStyle(device);
-                applyDeviceLayout();
-                // Continue loading
-                loadApp();
-            }
-        });
-
-        DOM.deviceOptions.forEach(opt => {
-            opt.addEventListener('click', function() {
-                DOM.deviceOptions.forEach(o => o.classList.remove('active'));
-                this.classList.add('active');
-            });
-        });
-
-        // If device already selected, load app
-        if (savedDevice) {
-            await loadApp();
-        }
-
-        // Set up event listeners
-        setupEventListeners();
-    }
-
-    async function loadApp() {
-        if (DOM.loadingOverlay) DOM.loadingOverlay.classList.remove('hidden');
         updateLoading(5);
 
         loadSavedSettings();
 
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
+        }
+
+        // Check for saved device or auto-detect
+        const savedDevice = localStorage.getItem('vvn_device');
+        if (savedDevice && typeof applyDeviceLayout === 'function') {
+            applyDeviceLayout(savedDevice);
+        } else if (typeof detectDevice === 'function') {
+            const detected = detectDevice();
+            applyDeviceLayout(detected);
         }
 
         const cached = localStorage.getItem('vvn_cache');
@@ -1073,11 +1491,12 @@
                 console.log('📦 Loaded from cache:', state.localCache.users.length, 'users');
                 updateLoading(40);
             } catch (e) {
+                console.warn('Cache parse error, using defaults');
                 state.localCache = { users: [], chats: {}, messages: {} };
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
-            if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
+            if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
                 state.localCache.users.push({
                     username: 'vaultnet',
                     displayName: 'VaultNet',
@@ -1101,7 +1520,7 @@
                     chats: remote.chats || {},
                     messages: remote.messages || {}
                 };
-                if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
+                if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
                     state.localCache.users.push({
                         username: 'vaultnet',
                         displayName: 'VaultNet',
@@ -1121,14 +1540,22 @@
 
         updateLoading(80);
 
+        if (state.settings.theme) {
+            applyTheme(state.settings.theme);
+        }
+
+        updateLoading(90);
+
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
-            const user = state.localCache.users.find(u => u.username === session.username);
+            const user = state.localCache.users.find(function(u) { return u.username === session.username; });
             if (user) {
                 state.currentUser = user;
                 renderMessenger();
+
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
+
                 updateLoading(100);
                 return;
             } else {
@@ -1136,167 +1563,315 @@
             }
         }
 
-        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
-        if (DOM.messenger) DOM.messenger.style.display = 'none';
+        // Show device selection first, then auth
+        showDeviceSelection();
         updateLoading(100);
     }
 
     // ---------- EVENT LISTENERS ----------
-    function setupEventListeners() {
-        // Auth
-        document.querySelectorAll('.auth-tab').forEach(tab => {
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auth tabs
+        document.querySelectorAll('.auth-tab').forEach(function(tab) {
             tab.addEventListener('click', function() {
-                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.auth-tab').forEach(function(t) { t.classList.remove('active'); });
                 this.classList.add('active');
-                document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
-                document.getElementById(this.dataset.tab + 'Form').classList.add('active');
+                document.querySelectorAll('.auth-form').forEach(function(f) { f.classList.remove('active'); });
+                const form = document.getElementById(this.dataset.tab + 'Form');
+                if (form) form.classList.add('active');
             });
         });
 
-        DOM.loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = DOM.loginUsername.value.trim();
-            const password = DOM.loginPassword.value.trim();
-            if (!username || !password) {
-                DOM.authError.textContent = 'Please fill in all fields';
-                DOM.authError.style.display = 'block';
-                return;
-            }
-            await loginUser(username, password);
-        });
+        // Login
+        if (DOM.loginForm) {
+            DOM.loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const username = DOM.loginUsername ? DOM.loginUsername.value.trim() : '';
+                const password = DOM.loginPassword ? DOM.loginPassword.value.trim() : '';
+                if (!username || !password) {
+                    if (DOM.authError) {
+                        DOM.authError.textContent = 'Please fill in all fields';
+                        DOM.authError.style.display = 'block';
+                    }
+                    return;
+                }
+                await loginUser(username, password);
+            });
+        }
 
-        DOM.registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = DOM.regUsername.value.trim();
-            const displayName = DOM.regDisplayName.value.trim();
-            const password = DOM.regPassword.value.trim();
-            if (!username || !password) {
-                DOM.regError.textContent = 'Username and password required';
-                DOM.regError.style.display = 'block';
-                return;
-            }
-            if (username.length < 3) {
-                DOM.regError.textContent = 'Username must be at least 3 characters';
-                DOM.regError.style.display = 'block';
-                return;
-            }
-            await registerUser(username, displayName, password);
-        });
+        // Register
+        if (DOM.registerForm) {
+            DOM.registerForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const username = DOM.regUsername ? DOM.regUsername.value.trim() : '';
+                const displayName = DOM.regDisplayName ? DOM.regDisplayName.value.trim() : '';
+                const password = DOM.regPassword ? DOM.regPassword.value.trim() : '';
+                if (!username || !password) {
+                    if (DOM.regError) {
+                        DOM.regError.textContent = 'Username and password required';
+                        DOM.regError.style.display = 'block';
+                    }
+                    return;
+                }
+                if (username.length < 3) {
+                    if (DOM.regError) {
+                        DOM.regError.textContent = 'Username must be at least 3 characters';
+                        DOM.regError.style.display = 'block';
+                    }
+                    return;
+                }
+                await registerUser(username, displayName, password);
+            });
+        }
 
         // Send message
-        DOM.sendBtn.addEventListener('click', sendMessage);
-        DOM.messageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
+        if (DOM.sendBtn) {
+            DOM.sendBtn.addEventListener('click', sendMessage);
+        }
+        if (DOM.messageInput) {
+            DOM.messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') sendMessage();
+                updateActivity();
+            });
+        }
 
         // Search
-        DOM.searchInput.addEventListener('input', function() {
-            searchUsers(this.value);
-        });
+        if (DOM.searchInput) {
+            DOM.searchInput.addEventListener('input', function() {
+                searchUsers(this.value);
+            });
+        }
         document.addEventListener('click', function(e) {
-            if (!e.target.closest('.search-wrap')) DOM.searchResults.style.display = 'none';
+            if (!e.target.closest('.search-wrap') && DOM.searchResults) {
+                DOM.searchResults.style.display = 'none';
+            }
         });
 
         // Back button
-        DOM.backBtn.addEventListener('click', function() {
-            if (state.deviceType === 'mobile') {
-                document.getElementById('sidebar').classList.remove('hide-mobile');
-                DOM.chatArea.classList.remove('active-mobile');
-                state.currentChatPartner = null;
-                showPlaceholder();
-                renderChatList();
-            }
-        });
+        if (DOM.backBtn) {
+            DOM.backBtn.addEventListener('click', function() {
+                if (state.isMobile) {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) sidebar.classList.remove('hide-mobile');
+                    if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
+                    state.currentChatPartner = null;
+                    showPlaceholder();
+                    renderChatList();
+                }
+            });
+        }
 
-        // Profile button
-        DOM.profileBtn.addEventListener('click', function() {
-            if (state.currentChatPartner) {
-                const user = getUserByUsername(state.currentChatPartner);
-                if (user) showProfile(user);
-            }
-        });
+        // Profile button (in header)
+        if (DOM.profileBtn) {
+            DOM.profileBtn.addEventListener('click', function() {
+                if (state.currentChatPartner) {
+                    showProfile(state.currentChatPartner);
+                }
+            });
+        }
 
-        DOM.chatHeaderInfo.addEventListener('click', function() {
-            if (state.currentChatPartner) {
-                const user = getUserByUsername(state.currentChatPartner);
-                if (user) showProfile(user);
-            }
-        });
+        // Chat header click for profile
+        if (DOM.chatHeaderInfo) {
+            DOM.chatHeaderInfo.addEventListener('click', function() {
+                if (state.currentChatPartner) {
+                    showProfile(state.currentChatPartner);
+                }
+            });
+        }
 
-        // Settings
-        DOM.settingsBtn.addEventListener('click', function() {
-            DOM.settingsModal.classList.add('active');
-        });
-        DOM.settingsClose.addEventListener('click', () => DOM.settingsModal.classList.remove('active'));
+        // Settings button (sidebar)
+        if (DOM.settingsBtn) {
+            DOM.settingsBtn.addEventListener('click', openSettings);
+        }
+        if (DOM.settingsClose) {
+            DOM.settingsClose.addEventListener('click', function() {
+                if (DOM.settingsModal) DOM.settingsModal.classList.remove('active');
+            });
+        }
 
         // Settings tabs
-        document.querySelectorAll('.settings-tab').forEach(tab => {
+        document.querySelectorAll('.settings-tab').forEach(function(tab) {
             tab.addEventListener('click', function() {
-                document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.settings-tab').forEach(function(t) { t.classList.remove('active'); });
                 this.classList.add('active');
-                document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
-                document.getElementById(this.dataset.tab + 'Settings').classList.add('active');
+                document.querySelectorAll('.settings-panel').forEach(function(p) { p.classList.remove('active'); });
+                const panel = document.getElementById(this.dataset.tab + 'Settings');
+                if (panel) panel.classList.add('active');
             });
         });
 
         // Save settings
-        DOM.saveSettings.addEventListener('click', saveSettings);
+        if (DOM.saveSettings) {
+            DOM.saveSettings.addEventListener('click', saveSettings);
+        }
 
         // Toggle handlers
-        DOM.e2eeToggle.addEventListener('change', function() {
-            state.settings.e2ee = this.checked;
-            DOM.e2eeStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
-            localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+        if (DOM.e2eeToggle) {
+            DOM.e2eeToggle.addEventListener('change', function() {
+                state.settings.e2ee = this.checked;
+                if (DOM.e2eeStatus) DOM.e2eeStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
+        if (DOM.twofaToggle) {
+            DOM.twofaToggle.addEventListener('change', function() {
+                state.settings.twofa = this.checked;
+                if (DOM.twofaStatus) DOM.twofaStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
+        if (DOM.privacyToggle) {
+            DOM.privacyToggle.addEventListener('change', function() {
+                state.settings.privacy = this.checked;
+                if (DOM.privacyStatus) DOM.privacyStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
+        if (DOM.devToggle) {
+            DOM.devToggle.addEventListener('change', function() {
+                state.settings.devMode = this.checked;
+                if (DOM.devStatus) DOM.devStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
+        // Security settings
+        if (DOM.autoLockTimer) {
+            DOM.autoLockTimer.addEventListener('change', function() {
+                state.settings.autoLock = this.value;
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+                resetAutoLock();
+            });
+        }
+
+        if (DOM.sessionTimeout) {
+            DOM.sessionTimeout.addEventListener('change', function() {
+                state.settings.sessionTimeout = this.value;
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
+        if (DOM.messageHistory) {
+            DOM.messageHistory.addEventListener('change', function() {
+                state.settings.messageHistory = this.value;
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
+        if (DOM.messageDelivery) {
+            DOM.messageDelivery.addEventListener('change', function() {
+                state.settings.messageDelivery = this.value;
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
+        // Theme cards
+        document.querySelectorAll('.theme-card').forEach(function(card) {
+            card.addEventListener('click', function() {
+                const theme = this.dataset.theme;
+                applyTheme(theme);
+                if (theme !== 'custom') {
+                    document.getElementById('customThemeOptions').style.display = 'none';
+                }
+            });
         });
 
-        DOM.twofaToggle.addEventListener('change', function() {
-            state.settings.twofa = this.checked;
-            DOM.twofaStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
-            localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
-        });
-
-        DOM.privacyToggle.addEventListener('change', function() {
-            state.settings.privacy = this.checked;
-            DOM.privacyStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
-            localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
-        });
-
-        DOM.devToggle.addEventListener('change', function() {
-            state.settings.devMode = this.checked;
-            DOM.devStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
-            localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
-        });
+        // Custom theme
+        if (DOM.applyCustomTheme) {
+            DOM.applyCustomTheme.addEventListener('click', applyCustomTheme);
+        }
 
         // Avatar upload
-        DOM.avatarUpload.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(ev) {
-                    DOM.settingsAvatar.src = ev.target.result;
-                    const user = state.currentUser;
-                    if (user) {
-                        user.avatar = ev.target.result;
-                        const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
-                        if (userIndex !== -1) {
-                            state.localCache.users[userIndex] = user;
-                            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        if (DOM.avatarUpload) {
+            DOM.avatarUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(ev) {
+                        if (DOM.settingsAvatar) DOM.settingsAvatar.src = ev.target.result;
+                        const user = state.currentUser;
+                        if (user) {
+                            user.avatar = ev.target.result;
+                            const userIndex = state.localCache.users.findIndex(function(u) {
+                                return u.username === user.username;
+                            });
+                            if (userIndex !== -1) {
+                                state.localCache.users[userIndex] = user;
+                                localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+                            }
                         }
-                    }
-                };
-                reader.readAsDataURL(file);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        // Modal close
+        if (DOM.modalClose) {
+            DOM.modalClose.addEventListener('click', function() {
+                if (DOM.profileModal) DOM.profileModal.classList.remove('active');
+            });
+        }
+        if (DOM.profileModal) {
+            const overlay = DOM.profileModal.querySelector('.modal-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', function() {
+                    DOM.profileModal.classList.remove('active');
+                });
+            }
+        }
+
+        // Manual sync
+        if (DOM.manualSyncBtn) {
+            DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
+        }
+
+        // ---------- DEVICE SELECTION ----------
+        document.querySelectorAll('.device-option').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const device = this.dataset.device;
+                selectDevice(device);
+            });
+        });
+
+        if (DOM.autoDetectBtn) {
+            DOM.autoDetectBtn.addEventListener('click', function() {
+                if (typeof detectDevice === 'function') {
+                    const detected = detectDevice();
+                    selectDevice(detected);
+                }
+            });
+        }
+
+        // ---------- DROPDOWN MENU ----------
+        if (DOM.chatDropdownBtn) {
+            DOM.chatDropdownBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleDropdown();
+            });
+        }
+
+        document.querySelectorAll('.dropdown-item').forEach(function(item) {
+            item.addEventListener('click', function() {
+                const action = this.dataset.action;
+                handleDropdownAction(action);
+                closeDropdown();
+            });
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.dropdown-trigger') && !e.target.closest('.dropdown-menu')) {
+                closeDropdown();
             }
         });
 
-        // Modal close
-        DOM.modalClose.addEventListener('click', () => DOM.profileModal.classList.remove('active'));
-        DOM.profileModal.querySelector('.modal-overlay').addEventListener('click', () => DOM.profileModal.classList.remove('active'));
+        // ---------- SELECTION ----------
+        if (DOM.selectBtn) {
+            DOM.selectBtn.addEventListener('click', toggleSelectionMode);
+        }
 
-        // Manual sync
-        DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
-
-        // Selection
-        DOM.selectBtn.addEventListener('click', toggleSelectionMode);
         document.addEventListener('click', function(e) {
             const msgEl = e.target.closest('.message');
             if (msgEl && selectionMode) {
@@ -1305,234 +1880,138 @@
             }
         });
 
-        // Selection toolbar
-        DOM.deleteSelectedBtn.addEventListener('click', () => DOM.deleteModal.classList.add('active'));
-        DOM.pinSelectedBtn.addEventListener('click', pinSelectedMessages);
-        DOM.cancelSelectionBtn.addEventListener('click', clearSelection);
+        if (DOM.deleteSelectedBtn) {
+            DOM.deleteSelectedBtn.addEventListener('click', showDeleteModal);
+        }
+        if (DOM.pinSelectedBtn) {
+            DOM.pinSelectedBtn.addEventListener('click', pinSelectedMessages);
+        }
+        if (DOM.cancelSelectionBtn) {
+            DOM.cancelSelectionBtn.addEventListener('click', clearSelection);
+        }
 
         // Delete modal
-        DOM.deleteForMeBtn.addEventListener('click', () => deleteSelectedMessages(false));
-        DOM.deleteForEveryoneBtn.addEventListener('click', () => deleteSelectedMessages(true));
-        DOM.deleteModalClose.addEventListener('click', () => DOM.deleteModal.classList.remove('active'));
+        if (DOM.deleteForMeBtn) {
+            DOM.deleteForMeBtn.addEventListener('click', function() { deleteMessages(false); });
+        }
+        if (DOM.deleteForEveryoneBtn) {
+            DOM.deleteForEveryoneBtn.addEventListener('click', function() { deleteMessages(true); });
+        }
+        if (DOM.deleteModalClose) {
+            DOM.deleteModalClose.addEventListener('click', function() {
+                DOM.deleteModal.classList.remove('active');
+            });
+        }
 
         // Pinned dock
-        DOM.unpinBtn.addEventListener('click', function() {
-            const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
-            if (chatKey) {
-                const pinnedMessages = JSON.parse(localStorage.getItem('vvn_pinned') || '{}');
-                if (pinnedMessages[chatKey]) {
-                    pinnedMessages[chatKey].pop();
-                    if (pinnedMessages[chatKey].length === 0) {
-                        delete pinnedMessages[chatKey];
-                        DOM.pinnedDock.style.display = 'none';
-                    } else {
-                        DOM.pinnedMessagePreview.textContent = 
-                            `${pinnedMessages[chatKey][pinnedMessages[chatKey].length-1].sender}: ${pinnedMessages[chatKey][pinnedMessages[chatKey].length-1].text || '📎 File'}`;
-                    }
-                    localStorage.setItem('vvn_pinned', JSON.stringify(pinnedMessages));
-                }
-            }
-        });
+        if (DOM.unpinBtn) {
+            DOM.unpinBtn.addEventListener('click', function() {
+                const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
+                if (chatKey) unpinMessage(chatKey);
+            });
+        }
+        if (DOM.pinnedMessagePreview) {
+            DOM.pinnedMessagePreview.addEventListener('click', scrollToPinnedMessage);
+        }
 
         // User settings
-        DOM.userSettingsBtn.addEventListener('click', () => DOM.userSettingsModal.classList.add('active'));
-        DOM.userSettingsClose.addEventListener('click', () => DOM.userSettingsModal.classList.remove('active'));
-        DOM.renameContactBtn.addEventListener('click', renameContact);
-        DOM.deleteContactBtn.addEventListener('click', deleteContact);
-        DOM.blockUserBtn.addEventListener('click', blockUser);
-        DOM.unblockUserBtn.addEventListener('click', unblockUser);
-        DOM.pinContactBtn.addEventListener('click', pinContact);
+        if (DOM.userSettingsBtn) {
+            DOM.userSettingsBtn.addEventListener('click', openUserSettings);
+        }
+        if (DOM.userSettingsClose) {
+            DOM.userSettingsClose.addEventListener('click', function() {
+                DOM.userSettingsModal.classList.remove('active');
+            });
+        }
+        if (DOM.renameContactBtn) {
+            DOM.renameContactBtn.addEventListener('click', renameContact);
+        }
+        if (DOM.deleteContactBtn) {
+            DOM.deleteContactBtn.addEventListener('click', deleteContact);
+        }
+        if (DOM.blockUserBtn) {
+            DOM.blockUserBtn.addEventListener('click', blockUser);
+        }
+        if (DOM.unblockUserBtn) {
+            DOM.unblockUserBtn.addEventListener('click', unblockUser);
+        }
+        if (DOM.pinContactBtn) {
+            DOM.pinContactBtn.addEventListener('click', pinContact);
+        }
 
         // Chat settings
-        DOM.chatSettingsBtn.addEventListener('click', () => DOM.chatSettingsModal.classList.add('active'));
-        DOM.chatSettingsClose.addEventListener('click', () => DOM.chatSettingsModal.classList.remove('active'));
-        document.querySelectorAll('.bubble-style').forEach(btn => {
+        if (DOM.chatSettingsBtn) {
+            DOM.chatSettingsBtn.addEventListener('click', openChatSettings);
+        }
+        if (DOM.chatSettingsClose) {
+            DOM.chatSettingsClose.addEventListener('click', function() {
+                DOM.chatSettingsModal.classList.remove('active');
+            });
+        }
+        document.querySelectorAll('.bubble-style').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 changeBubbleStyle(this.dataset.style);
             });
         });
-        DOM.bgDefault.addEventListener('click', () => {
-            DOM.chatMessages.style.background = '';
-            DOM.chatMessages.style.backgroundImage = '';
-            localStorage.removeItem('vvn_bg_image');
-        });
-        DOM.bgCustom.addEventListener('click', () => DOM.bgUpload.click());
-        DOM.bgUpload.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(ev) {
-                    DOM.chatMessages.style.backgroundImage = `url(${ev.target.result})`;
-                    DOM.chatMessages.style.backgroundSize = 'cover';
-                    DOM.chatMessages.style.backgroundPosition = 'center';
-                    localStorage.setItem('vvn_bg_image', ev.target.result);
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-        DOM.createNoteBtn.addEventListener('click', function() {
-            const note = prompt('Enter your note:');
-            if (note && note.trim()) {
-                const notes = JSON.parse(localStorage.getItem('vvn_notes') || '[]');
-                notes.push({ id: Date.now(), text: note.trim(), created: Date.now() });
-                localStorage.setItem('vvn_notes', JSON.stringify(notes));
-                alert('Note saved!');
-            }
-        });
-
-        // Theme cards
-        document.querySelectorAll('.theme-card').forEach(card => {
-            card.addEventListener('click', function() {
-                const theme = this.dataset.theme;
-                applyTheme(theme);
-                document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
-                this.classList.add('active');
-                if (theme === 'custom') {
-                    document.getElementById('customThemeOptions').style.display = 'block';
-                } else {
-                    document.getElementById('customThemeOptions').style.display = 'none';
-                }
-            });
-        });
-
-        // Custom theme
-        DOM.applyCustomTheme.addEventListener('click', function() {
-            const primary = DOM.primaryColor.value;
-            const secondary = DOM.secondaryColor.value;
-            const text = DOM.textColor.value;
-            const accent = DOM.accentColor.value;
-            
-            const root = document.documentElement;
-            root.style.setProperty('--dark-purple', primary);
-            root.style.setProperty('--bg-secondary', secondary);
-            root.style.setProperty('--text-primary', text);
-            root.style.setProperty('--accent', accent);
-            
-            localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text, accent }));
-            alert('Custom theme applied!');
-        });
+        if (DOM.bgDefault) {
+            DOM.bgDefault.addEventListener('click', function() { changeChatBackground('default'); });
+        }
+        if (DOM.bgCustom) {
+            DOM.bgCustom.addEventListener('click', function() { changeChatBackground('custom'); });
+        }
+        if (DOM.bgUpload) {
+            DOM.bgUpload.addEventListener('change', handleBackgroundUpload);
+        }
+        if (DOM.createNoteBtn) {
+            DOM.createNoteBtn.addEventListener('click', createNote);
+        }
 
         // File attachment
-        DOM.clipBtn.addEventListener('click', () => DOM.fileModal.classList.add('active'));
-        DOM.fileModalClose.addEventListener('click', () => DOM.fileModal.classList.remove('active'));
-        DOM.fileSelectBtn.addEventListener('click', () => DOM.fileInput.click());
-        DOM.fileInput.addEventListener('change', handleFileInput);
-        DOM.fileClearBtn.addEventListener('click', function() {
-            pendingFiles = [];
-            DOM.filePreviewContainer.innerHTML = '';
-            this.style.display = 'none';
-        });
-        DOM.fileSendBtn.addEventListener('click', sendFiles);
-
-        // Dropdown
-        DOM.dropdownToggle.addEventListener('click', toggleDropdown);
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.dropdown')) {
-                DOM.dropdownMenu.classList.remove('active');
-            }
-        });
-        document.querySelectorAll('.dropdown-item').forEach(item => {
-            item.addEventListener('click', function() {
-                handleDropdownAction(this.dataset.action);
+        if (DOM.clipBtn) {
+            DOM.clipBtn.addEventListener('click', openFileModal);
+        }
+        if (DOM.fileModalClose) {
+            DOM.fileModalClose.addEventListener('click', function() {
+                DOM.fileModal.classList.remove('active');
             });
-        });
+        }
+        if (DOM.fileSelectBtn) {
+            DOM.fileSelectBtn.addEventListener('click', handleFileSelect);
+        }
+        if (DOM.fileInput) {
+            DOM.fileInput.addEventListener('change', handleFileInput);
+        }
+        if (DOM.fileClearBtn) {
+            DOM.fileClearBtn.addEventListener('click', clearAllFiles);
+        }
+        if (DOM.fileSendBtn) {
+            DOM.fileSendBtn.addEventListener('click', sendMessage);
+        }
 
         // Close modals on overlay click
-        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
             overlay.addEventListener('click', function() {
                 this.parentElement.classList.remove('active');
             });
         });
 
+        // Activity tracking for auto-lock
+        document.addEventListener('click', updateActivity);
+        document.addEventListener('keydown', updateActivity);
+        document.addEventListener('mousemove', updateActivity);
+
         // Resize
-        window.addEventListener('resize', function() {
-            const width = window.innerWidth;
-            if (width < 768 && state.deviceType !== 'mobile') {
-                // Suggest switching to mobile
-            }
-        });
+        window.addEventListener('resize', updateMobileView);
+
+        // Start app
+        init();
 
         console.log('🚀 VVN Messenger started!');
         console.log('👤 Default owner: vaultnet');
         console.log('🔐 Password: admin123');
-    }
-
-    // ---------- SAVE SETTINGS ----------
-    async function saveSettings() {
-        const user = state.currentUser;
-        if (!user) return;
-
-        const displayName = DOM.settingsDisplayName.value.trim() || user.username;
-        const username = DOM.settingsUsername.value.trim();
-        const password = DOM.settingsPassword.value.trim();
-        const bio = DOM.settingsBio.value.trim();
-
-        if (username !== user.username) {
-            const existing = state.localCache.users.find(u => u.username === username && u.username !== user.username);
-            if (existing) {
-                alert('Username already taken');
-                return;
-            }
-        }
-
-        const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
-        if (userIndex !== -1) {
-            state.localCache.users[userIndex] = {
-                ...state.localCache.users[userIndex],
-                displayName: displayName,
-                username: username,
-                password: password || state.localCache.users[userIndex].password,
-                bio: bio
-            };
-
-            state.currentUser = state.localCache.users[userIndex];
-
-            if (username !== user.username) {
-                const session = JSON.parse(localStorage.getItem('vvn_session'));
-                if (session) {
-                    session.username = username;
-                    localStorage.setItem('vvn_session', JSON.stringify(session));
-                }
-            }
-
-            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-            await pushToRemote();
-            renderMessenger();
-            DOM.settingsModal.classList.remove('active');
-            alert('Settings saved successfully!');
-        }
-    }
-
-    // ---------- SHOW PROFILE ----------
-    function showProfile(user) {
-        if (!user) return;
-
-        const tags = getUserTags(user.username);
-        DOM.profileTags.innerHTML = tags.map(t =>
-            `<span class="tag ${t.class}">${t.label}</span>`
-        ).join('');
-
-        DOM.profileDisplayName.textContent = user.displayName || user.username;
-        DOM.profileUsername.textContent = '@' + user.username;
-        DOM.profileBio.textContent = user.bio || 'No bio yet';
-        DOM.profileJoined.textContent = 'Joined: ' + formatDate(user.created || Date.now());
-        DOM.profileAge.textContent = 'Age: ' + getAge(user.created || Date.now());
-        DOM.profileAvatar.src = user.avatar || 'icons/user.png';
-        DOM.profileUserID.textContent = 'ID: ' + user.username + '-' + (user.created || '').toString().slice(-6);
-
-        if (state.settings.devMode && CONFIG.DEV_PIN) {
-            const pinCheck = prompt('Enter developer PIN to view password:');
-            if (pinCheck === CONFIG.DEV_PIN) {
-                DOM.profilePassword.style.display = 'block';
-                DOM.profilePassword.textContent = 'Password: ' + user.password;
-            }
-        } else {
-            DOM.profilePassword.style.display = 'none';
-        }
-
-        DOM.profileModal.classList.add('active');
-    }
-
-    // Start app
-    init();
+        console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
+        console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
+        console.log('🎨 5 Themes available: Dark, Light, Midnight, Forest, Ocean');
+        console.log('🔒 Message delivery: End-to-End Encrypted');
+    });
 })();
