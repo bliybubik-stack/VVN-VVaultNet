@@ -847,4 +847,60 @@ DOM.e2eeToggle.addEventListener('change', function() {
     localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
 });
 
-DOM.twofaToggle.addEventListener('change
+DOM.twofaToggle.addEventListener('change', function() {
+    state.settings.twofa = this.checked;
+    DOM.twofaStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+    localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+});
+
+DOM.privacyToggle.addEventListener('change', function() {
+    state.settings.privacy = this.checked;
+    DOM.privacyStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+    localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+});
+
+DOM.devToggle.addEventListener('change', function() {
+    state.settings.devMode = this.checked;
+    DOM.devStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+    localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+});
+
+// Avatar upload
+DOM.avatarUpload.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            DOM.settingsAvatar.src = ev.target.result;
+            // Update user avatar
+            const user = state.currentUser;
+            if (user) {
+                user.avatar = ev.target.result;
+                const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
+                if (userIndex !== -1) {
+                    state.localCache.users[userIndex] = user;
+                    localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+                }
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// Modal close
+DOM.modalClose.addEventListener('click', () => DOM.profileModal.classList.remove('active'));
+DOM.profileModal.querySelector('.modal-overlay').addEventListener('click', () => DOM.profileModal.classList.remove('active'));
+
+// Manual sync
+DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
+
+// Resize
+window.addEventListener('resize', updateMobileView);
+
+// Start app
+init();
+
+console.log('🚀 VVN Messenger started!');
+console.log('👤 Owner: vaultnet');
+console.log('🔐 Developer PIN:', CONFIG.DEV_PIN);
+console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
