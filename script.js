@@ -153,7 +153,9 @@
         filePreviewContainer: document.getElementById('filePreviewContainer'),
         fileClearBtn: document.getElementById('fileClearBtn'),
         fileCaption: document.getElementById('fileCaption'),
-        fileSendBtn: document.getElementById('fileSendBtn')
+        fileSendBtn: document.getElementById('fileSendBtn'),
+        statusBar: document.getElementById('statusBar'),
+        messengerLayout: document.getElementById('messengerLayout')
     };
 
     // ---------- STATE VARIABLES ----------
@@ -188,6 +190,18 @@
         text: 'Create an account and start chatting!',
         time: '14:32'
     }];
+
+    // ---------- PATTERN ROTATION ----------
+    const patterns = ['pattern-1', 'pattern-2', 'pattern-3', 'pattern-4', 'pattern-5'];
+    let currentPatternIndex = 0;
+
+    function rotatePattern() {
+        const bg = document.querySelector('.chat-bg-pattern');
+        if (bg) {
+            bg.className = 'chat-bg-pattern ' + patterns[currentPatternIndex];
+            currentPatternIndex = (currentPatternIndex + 1) % patterns.length;
+        }
+    }
 
     // ---------- UTILITY FUNCTIONS ----------
     function formatTime(ts) {
@@ -415,10 +429,10 @@
         if (DOM.statusBar) DOM.statusBar.style.display = 'flex';
         if (DOM.messengerLayout) DOM.messengerLayout.style.display = 'flex';
 
-        // Update device indicator
         if (DOM.deviceIndicator) {
             const icons = { phone: '📱', tablet: '📟', pc: '🖥️' };
             DOM.deviceIndicator.textContent = icons[device] + ' ' + device.charAt(0).toUpperCase() + device.slice(1);
+            DOM.deviceIndicator.style.display = 'block';
         }
 
         const root = document.documentElement;
@@ -686,6 +700,7 @@
         scrollToBottom();
         clearSelection();
         closeDropdown();
+        rotatePattern();
     }
 
     function renderMessages(msgs) {
@@ -796,6 +811,7 @@
         if (DOM.messageInput) DOM.messageInput.value = '';
         scrollToBottom();
         updateActivity();
+        rotatePattern();
     }
 
     // ---------- SEARCH ----------
@@ -1510,18 +1526,6 @@
         }
     }
 
-    // ---------- PATTERN ROTATION ----------
-    const patterns = ['pattern-grid', 'pattern-grid-large', 'pattern-dots', 'pattern-dots-small', 'pattern-dots-large'];
-    let currentPatternIndex = 0;
-
-    function rotatePattern() {
-        const bg = document.querySelector('.chat-bg-pattern');
-        if (bg) {
-            bg.className = 'chat-bg-pattern ' + patterns[currentPatternIndex];
-            currentPatternIndex = (currentPatternIndex + 1) % patterns.length;
-        }
-    }
-
     // ---------- INIT ----------
     async function init() {
         console.log('🚀 Initializing VVN Messenger...');
@@ -1599,6 +1603,14 @@
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         }
 
+        // Set initial pattern
+        const bg = document.querySelector('.chat-bg-pattern');
+        if (bg) {
+            const randomPattern = patterns[Math.floor(Math.random() * patterns.length)];
+            bg.className = 'chat-bg-pattern ' + randomPattern;
+            currentPatternIndex = patterns.indexOf(randomPattern);
+        }
+
         updateLoading(50);
 
         // Try to sync with JSONBin
@@ -1634,14 +1646,6 @@
         // Apply theme
         if (state.settings.theme) {
             applyTheme(state.settings.theme);
-        }
-
-        // Set initial pattern
-        const bg = document.querySelector('.chat-bg-pattern');
-        if (bg) {
-            const randomPattern = patterns[Math.floor(Math.random() * patterns.length)];
-            bg.className = 'chat-bg-pattern ' + randomPattern;
-            currentPatternIndex = patterns.indexOf(randomPattern);
         }
 
         updateLoading(90);
@@ -1944,7 +1948,6 @@
             btn.addEventListener('click', function() {
                 const device = this.dataset.device;
                 selectDevice(device);
-                // After selecting device, show auth screen
                 if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
                 if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
             });
@@ -2125,8 +2128,8 @@
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
-        console.log('🎨 ' + patterns.length + ' background patterns available (Grid & Dots)');
-        console.log('💎 Life glass effect with 80% clarity');
-        console.log('📏 Floating island input: 128px height + 40px bottom padding');
+        console.log('🎨 5 background patterns available');
+        console.log('💎 Glassmorphism UI with floating island input');
+        console.log('📏 Floating island input: 118px height + 40px bottom padding');
     });
 })();
