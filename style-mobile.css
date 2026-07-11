@@ -1,0 +1,57 @@
+/* Mobile Layout - Phone */
+.sidebar { width: 100%; min-width: unset; }
+.chat-area { width: 100%; display: none; }
+.chat-area.active-mobile { display: flex; }
+.sidebar.hide-mobile { display: none; }
+.back-btn { display: block !important; }
+
+.chat-input-bar {
+    min-height: 72px;
+    padding: 10px 12px calc(12px + var(--safe-bottom));
+    gap: 10px;
+}
+.chat-input-bar input {
+    min-height: 44px;
+    font-size: 0.9rem;
+    padding: 10px 14px;
+    border-radius: 22px;
+}
+.chat-input-bar button { width: 48px; height: 48px; }
+.chat-input-bar .clip-btn { width: 44px; height: 44px; padding: 8px; }
+.chat-input-bar .clip-btn img { width: 22px; height: 22px; }
+.chat-input-bar button img { width: 22px; height: 22px; }
+
+.message { max-width: 85%; font-size: 0.85rem; padding: 6px 12px; }
+.message .selection-circle { left: -18px; width: 16px; height: 16px; }
+.message .file-content img,
+.message .file-content video { max-width: 150px; max-height: 130px; }
+
+.chat-header { min-height: 48px; padding: 6px 12px; }
+.chat-header-info .avatar { width: 30px; height: 30px; font-size: 0.8rem; }
+.chat-header-info .chatuser { font-size: 0.85rem; }
+.header-action-btn { padding: 4px; }
+.header-action-btn img { width: 18px; height: 18px; }
+
+.auth-box { padding: 20px 16px; }
+.auth-brand img { width: 64px; height: 64px; }
+.auth-brand h1 { font-size: 1.6rem; }
+
+.settings-modal { max-width: 100%; }
+.settings-tabs { flex-wrap: wrap; }
+.settings-tab { flex: none; padding: 6px 12px; font-size: 0.75rem; }
+
+.theme-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+.theme-card { padding: 8px; }
+.theme-card .theme-icon { font-size: 1.2rem; }
+.theme-card .theme-name { font-size: 0.65rem; }
+
+.color-grid { grid-template-columns: 1fr; }
+.modal-content { width: 95%; padding: 16px; }
+
+.dropdown-menu { min-width: 180px; right: -10px; }
+.dropdown-item { font-size: 0.8rem; padding: 8px 14px; }
+
+.chat-item { padding: 6px 10px; }
+.chat-item .avatar { width: 32px; height: 32px; font-size: 0.8rem; }
+.chat-item .chat-info .cname { font-size: 0.85rem; }
+.chat-item .chat-info .preview { font-size: 0.7rem; }
