@@ -18,7 +18,6 @@
             autoLock: 'never',
             sessionTimeout: 'never',
             messageHistory: 'forever',
-            messageDelivery: 'e2ee',
             theme: 'dark'
         },
         loadingComplete: false
@@ -41,7 +40,6 @@
     const DOM = {
         loadingOverlay: document.getElementById('loadingOverlay'),
         loaderFill: document.getElementById('loaderFill'),
-        deviceScreen: document.getElementById('deviceScreen'),
         authScreen: document.getElementById('authScreen'),
         messenger: document.getElementById('messenger'),
         authError: document.getElementById('authError'),
@@ -132,17 +130,12 @@
         bgCustom: document.getElementById('bgCustom'),
         bgUpload: document.getElementById('bgUpload'),
         createNoteBtn: document.getElementById('createNoteBtn'),
-        // New elements
-        chatDropdownBtn: document.getElementById('chatDropdownBtn'),
-        dropdownMenu: document.getElementById('dropdownMenu'),
-        autoDetectBtn: document.getElementById('autoDetectBtn'),
-        deviceIndicator: document.getElementById('deviceIndicator'),
-        // Security elements
+        themeBtn: document.getElementById('themeBtn'),
+        // New security elements
         autoLockTimer: document.getElementById('autoLockTimer'),
         sessionTimeout: document.getElementById('sessionTimeout'),
         messageHistory: document.getElementById('messageHistory'),
-        messageDelivery: document.getElementById('messageDelivery'),
-        // Theme elements
+        // New theme elements
         primaryColor: document.getElementById('primaryColor'),
         secondaryColor: document.getElementById('secondaryColor'),
         textColor: document.getElementById('textColor'),
@@ -154,13 +147,13 @@
         fileModalClose: document.getElementById('fileModalClose'),
         fileSelectBtn: document.getElementById('fileSelectBtn'),
         fileInput: document.getElementById('fileInput'),
-        filePreviewContainer: document.getElementById('filePreviewContainer'),
-        fileClearBtn: document.getElementById('fileClearBtn'),
+        filePreviewImage: document.getElementById('filePreviewImage'),
+        filePreviewVideo: document.getElementById('filePreviewVideo'),
         fileCaption: document.getElementById('fileCaption'),
         fileSendBtn: document.getElementById('fileSendBtn')
     };
 
-    // ---------- STATE VARIABLES ----------
+    // ---------- NEW STATE VARIABLES ----------
     let selectionMode = false;
     let selectedMessages = new Set();
     let pinnedMessages = {};
@@ -171,7 +164,8 @@
         background: 'default',
         bgImage: null
     };
-    let pendingFiles = [];
+    let pendingFile = null;
+    let pendingFileType = null;
     let autoLockTimeout = null;
     let lastActivity = Date.now();
 
@@ -235,7 +229,7 @@
         if (!('Notification' in window)) return;
         if (Notification.permission === 'granted') {
             new Notification('VVN - New Message', {
-                body: username + ': ' + message + ' at ' + time,
+                body: `${username}: ${message} at ${time}`,
                 icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💬</text></svg>'
             });
         } else if (Notification.permission !== 'denied') {
@@ -273,7 +267,7 @@
     async function fetchFromBin() {
         try {
             setStatus('Fetching...', 'yellow');
-            const resp = await fetch('https://api.jsonbin.io/v3/b/' + CONFIG.BIN_ID, {
+            const resp = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}`, {
                 headers: {
                     'X-Master-Key': CONFIG.MASTER_KEY,
                     'X-Bin-Meta': 'false'
@@ -297,7 +291,7 @@
     async function updateBin(data) {
         try {
             setStatus('Saving...', 'yellow');
-            const resp = await fetch('https://api.jsonbin.io/v3/b/' + CONFIG.BIN_ID, {
+            const resp = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.BIN_ID}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -389,69 +383,6 @@
         return success;
     }
 
-    // ---------- DEVICE SELECTION ----------
-    function showDeviceSelection() {
-        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'flex';
-        if (DOM.authScreen) DOM.authScreen.style.display = 'none';
-        if (DOM.messenger) DOM.messenger.style.display = 'none';
-    }
-
-    function selectDevice(deviceType) {
-        localStorage.setItem('vvn_device', deviceType);
-        if (typeof applyDeviceLayout === 'function') {
-            applyDeviceLayout(deviceType);
-        }
-        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'none';
-        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
-    }
-
-    // ---------- DROPDOWN MENU ----------
-    function toggleDropdown() {
-        if (!DOM.dropdownMenu) return;
-        if (DOM.dropdownMenu.style.display === 'block') {
-            DOM.dropdownMenu.style.display = 'none';
-        } else {
-            DOM.dropdownMenu.style.display = 'block';
-            // Position the dropdown
-            const btn = DOM.chatDropdownBtn;
-            if (btn) {
-                const rect = btn.getBoundingClientRect();
-                DOM.dropdownMenu.style.top = (rect.bottom + 8) + 'px';
-                DOM.dropdownMenu.style.right = '12px';
-            }
-        }
-    }
-
-    function closeDropdown() {
-        if (DOM.dropdownMenu) DOM.dropdownMenu.style.display = 'none';
-    }
-
-    function handleDropdownAction(action) {
-        switch(action) {
-            case 'select':
-                toggleSelectionMode();
-                break;
-            case 'user-settings':
-                openUserSettings();
-                break;
-            case 'chat-settings':
-                openChatSettings();
-                break;
-            case 'profile':
-                if (state.currentChatPartner) {
-                    showProfile(state.currentChatPartner);
-                }
-                break;
-            case 'device':
-                logout();
-                showDeviceSelection();
-                break;
-            case 'logout':
-                logout();
-                break;
-        }
-    }
-
     // ---------- AUTH ----------
     async function loginUser(username, password) {
         const users = state.localCache.users;
@@ -480,9 +411,9 @@
             return false;
         }
         const newUser = {
-            username: username,
+            username,
             displayName: displayName || username,
-            password: password,
+            password,
             bio: '',
             online: true,
             created: Date.now(),
@@ -540,7 +471,7 @@
         if (autoLockTimeout) clearTimeout(autoLockTimeout);
         const lockTime = parseInt(state.settings.autoLock);
         if (lockTime && lockTime !== 'never') {
-            autoLockTimeout = setTimeout(function() {
+            autoLockTimeout = setTimeout(() => {
                 if (state.currentUser) {
                     logout();
                     alert('Auto-locked due to inactivity.');
@@ -559,12 +490,10 @@
         if (!state.currentUser || !DOM.chatList) return;
         const chats = state.localCache.chats;
         const messages = state.localCache.messages;
-        let chatKeys = Object.keys(chats).filter(function(k) {
-            return k.includes(state.currentUser.username);
-        });
+        let chatKeys = Object.keys(chats).filter(k => k.includes(state.currentUser.username));
 
         blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
-        chatKeys = chatKeys.filter(function(k) {
+        chatKeys = chatKeys.filter(k => {
             const parts = k.split('_');
             const partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
             return !blockedUsers.includes(partner);
@@ -574,9 +503,9 @@
 
         let html = '';
         if (chatKeys.length === 0) {
-            html = '<div class="empty-chats">No chats yet. Search for users above.</div>';
+            html = `<div class="empty-chats">No chats yet. Search for users above.</div>`;
         } else {
-            const sorted = chatKeys.sort(function(a, b) {
+            const sorted = chatKeys.sort((a, b) => {
                 const partsA = a.split('_');
                 const partsB = b.split('_');
                 const partnerA = partsA[0] === state.currentUser.username ? partsA[1] : partsA[0];
@@ -601,23 +530,23 @@
                 const time = last ? formatTime(last.timestamp) : '';
                 const pUser = getUserByUsername(partner);
                 const tags = getUserTags(partner);
-                const tagHtml = tags.map(function(t) { return '<span class="tag">' + t.label + '</span>'; }).join('');
+                const tagHtml = tags.map(t => `<span class="tag">${t.label}</span>`).join('');
                 const isPinned = pinnedContacts.includes(partner);
                 const displayName = getDisplayName(partner);
 
-                html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
-                html += '<div class="avatar">' + partner.charAt(0).toUpperCase() + '</div>';
-                html += '<div class="chat-info">';
-                html += '<div class="cname">' + displayName + ' ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
-                html += '<div class="preview">' + preview + '</div>';
-                html += '</div>';
-                html += '<div class="time">' + time + '</div>';
-                html += '</div>';
+                html += `<div class="chat-item ${partner === state.currentChatPartner ? 'active' : ''}" data-partner="${partner}">
+                    <div class="avatar">${partner.charAt(0).toUpperCase()}</div>
+                    <div class="chat-info">
+                        <div class="cname">${displayName} ${tagHtml} ${isPinned ? '📌' : ''}</div>
+                        <div class="preview">${preview}</div>
+                    </div>
+                    <div class="time">${time}</div>
+                </div>`;
             }
         }
         DOM.chatList.innerHTML = html;
 
-        document.querySelectorAll('.chat-item').forEach(function(el) {
+        document.querySelectorAll('.chat-item').forEach(el => {
             el.addEventListener('click', function() {
                 openChat(this.dataset.partner);
                 updateActivity();
@@ -682,7 +611,6 @@
         updateMobileView();
         scrollToBottom();
         clearSelection();
-        closeDropdown();
     }
 
     function renderMessages(msgs) {
@@ -694,36 +622,40 @@
         }
         for (let i = 0; i < msgs.length; i++) {
             const msg = msgs[i];
-            const msgId = msg.timestamp + '-' + i;
+            const msgId = `${msg.timestamp}-${i}`;
             const div = document.createElement('div');
             const isOutgoing = msg.sender === state.currentUser.username;
-            div.className = 'message ' + (isOutgoing ? 'outgoing' : 'incoming') + ' bubble-' + chatSettings.bubbleStyle;
+            div.className = `message ${isOutgoing ? 'outgoing' : 'incoming'} bubble-${chatSettings.bubbleStyle}`;
             div.dataset.msgId = msgId;
             
             let content = '';
             if (msg.file) {
-                content += '<div class="file-content">';
+                content += `<div class="file-content">`;
                 if (msg.file.type === 'image') {
-                    content += '<img src="' + msg.file.data + '" alt="Image" />';
+                    content += `<img src="${msg.file.data}" alt="Image" />`;
                 } else if (msg.file.type === 'video') {
-                    content += '<video controls><source src="' + msg.file.data + '" /></video>';
+                    content += `<video controls><source src="${msg.file.data}" /></video>`;
                 }
-                content += '</div>';
+                content += `</div>`;
                 if (msg.file.caption) {
-                    content += '<div class="file-caption">' + msg.file.caption + '</div>';
+                    content += `<div class="file-caption">${msg.file.caption}</div>`;
                 }
             } else {
                 content = msg.text || '';
             }
             
-            div.innerHTML = '<div class="selection-circle"></div>' + content + '<div class="time">' + formatTime(msg.timestamp) + '</div>';
+            div.innerHTML = `
+                <div class="selection-circle"></div>
+                ${content}
+                <div class="time">${formatTime(msg.timestamp)}</div>
+            `;
             DOM.chatMessages.appendChild(div);
         }
         scrollToBottom();
     }
 
     function scrollToBottom() {
-        setTimeout(function() {
+        setTimeout(() => {
             if (DOM.chatMessages) {
                 DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
             }
@@ -745,38 +677,34 @@
         if (!state.currentUser || !state.currentChatPartner) return;
         if (!DOM.messageInput) return;
         const text = DOM.messageInput.value.trim();
-        if (!text && pendingFiles.length === 0) return;
+        if (!text && !pendingFile) return;
 
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages;
         if (!messages[chatKey]) messages[chatKey] = [];
 
-        if (pendingFiles.length > 0) {
-            const caption = DOM.fileCaption ? DOM.fileCaption.value.trim() : '';
-            for (const file of pendingFiles) {
-                messages[chatKey].push({
-                    sender: state.currentUser.username,
-                    timestamp: Date.now(),
-                    file: {
-                        type: file.type,
-                        data: file.data,
-                        caption: caption
-                    }
-                });
-            }
-            pendingFiles = [];
-            if (DOM.filePreviewContainer) DOM.filePreviewContainer.innerHTML = '';
-            if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
+        const newMsg = {
+            sender: state.currentUser.username,
+            timestamp: Date.now()
+        };
+
+        if (pendingFile) {
+            newMsg.file = {
+                type: pendingFileType,
+                data: pendingFile,
+                caption: DOM.fileCaption ? DOM.fileCaption.value.trim() : ''
+            };
+            pendingFile = null;
+            pendingFileType = null;
+            DOM.fileModal.classList.remove('active');
             if (DOM.fileCaption) DOM.fileCaption.value = '';
-            if (DOM.fileModal) DOM.fileModal.classList.remove('active');
+            if (DOM.filePreviewImage) DOM.filePreviewImage.src = 'icons/image-placeholder.png';
+            if (DOM.filePreviewVideo) DOM.filePreviewVideo.style.display = 'none';
         } else {
-            messages[chatKey].push({
-                sender: state.currentUser.username,
-                timestamp: Date.now(),
-                text: text
-            });
+            newMsg.text = text;
         }
 
+        messages[chatKey].push(newMsg);
         state.localCache.messages = messages;
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
 
@@ -803,15 +731,15 @@
         }
         const users = state.localCache.users;
         const q = query.toLowerCase();
-        const found = users.filter(function(u) {
-            return u.username !== state.currentUser.username &&
-                !blockedUsers.includes(u.username) &&
-                (u.username.toLowerCase().includes(q) ||
-                 (u.displayName && u.displayName.toLowerCase().includes(q)));
-        });
+        const found = users.filter(u =>
+            u.username !== state.currentUser.username &&
+            !blockedUsers.includes(u.username) &&
+            (u.username.toLowerCase().includes(q) ||
+             (u.displayName && u.displayName.toLowerCase().includes(q)))
+        );
 
         if (found.length === 0) {
-            DOM.searchResults.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:0.85rem;">No users found</div>';
+            DOM.searchResults.innerHTML = `<div style="padding:10px 14px;color:var(--text-muted);font-size:0.85rem;">No users found</div>`;
             DOM.searchResults.style.display = 'block';
             return;
         }
@@ -819,18 +747,19 @@
         let html = '';
         for (const u of found) {
             const tags = getUserTags(u.username);
-            const tagHtml = tags.map(function(t) { return '<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">' + t.label + '</span>'; }).join('');
-            html += '<div class="search-result-item" data-username="' + u.username + '">';
-            html += '<div class="avatar">' + u.username.charAt(0).toUpperCase() + '</div>';
-            html += '<div class="info">';
-            html += '<div class="uname">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
-            html += '<div class="email">@' + u.username + '</div>';
-            html += '</div></div>';
+            const tagHtml = tags.map(t => `<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">${t.label}</span>`).join('');
+            html += `<div class="search-result-item" data-username="${u.username}">
+                <div class="avatar">${u.username.charAt(0).toUpperCase()}</div>
+                <div class="info">
+                    <div class="uname">${u.displayName || u.username} ${tagHtml}</div>
+                    <div class="email">@${u.username}</div>
+                </div>
+            </div>`;
         }
         DOM.searchResults.innerHTML = html;
         DOM.searchResults.style.display = 'block';
 
-        document.querySelectorAll('.search-result-item').forEach(function(el) {
+        document.querySelectorAll('.search-result-item').forEach(el => {
             el.addEventListener('click', function() {
                 openChat(this.dataset.username);
                 DOM.searchResults.style.display = 'none';
@@ -847,9 +776,9 @@
 
         const tags = getUserTags(username);
         if (DOM.profileTags) {
-            DOM.profileTags.innerHTML = tags.map(function(t) {
-                return '<span class="tag ' + t.class + '">' + t.label + '</span>';
-            }).join('');
+            DOM.profileTags.innerHTML = tags.map(t =>
+                `<span class="tag ${t.class}">${t.label}</span>`
+            ).join('');
         }
 
         if (DOM.profileDisplayName) DOM.profileDisplayName.textContent = user.displayName || user.username;
@@ -871,7 +800,6 @@
         }
 
         if (DOM.profileModal) DOM.profileModal.classList.add('active');
-        closeDropdown();
     }
 
     // ---------- SETTINGS ----------
@@ -900,15 +828,15 @@
         if (DOM.privacyStatus) DOM.privacyStatus.textContent = state.settings.privacy ? 'Enabled' : 'Disabled';
         if (DOM.devStatus) DOM.devStatus.textContent = state.settings.devMode ? 'Enabled' : 'Disabled';
 
+        // Security settings
         if (DOM.autoLockTimer) DOM.autoLockTimer.value = state.settings.autoLock || 'never';
         if (DOM.sessionTimeout) DOM.sessionTimeout.value = state.settings.sessionTimeout || 'never';
         if (DOM.messageHistory) DOM.messageHistory.value = state.settings.messageHistory || 'forever';
-        if (DOM.messageDelivery) DOM.messageDelivery.value = state.settings.messageDelivery || 'e2ee';
 
+        // Apply current theme
         applyTheme(state.settings.theme || 'dark');
 
         if (DOM.settingsModal) DOM.settingsModal.classList.add('active');
-        closeDropdown();
     }
 
     async function saveSettings() {
@@ -921,18 +849,14 @@
         const bio = DOM.settingsBio ? DOM.settingsBio.value.trim() : '';
 
         if (username !== user.username) {
-            const existing = state.localCache.users.find(function(u) {
-                return u.username === username && u.username !== user.username;
-            });
+            const existing = state.localCache.users.find(u => u.username === username && u.username !== user.username);
             if (existing) {
                 alert('Username already taken');
                 return;
             }
         }
 
-        const userIndex = state.localCache.users.findIndex(function(u) {
-            return u.username === user.username;
-        });
+        const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
         if (userIndex !== -1) {
             state.localCache.users[userIndex] = {
                 ...state.localCache.users[userIndex],
@@ -966,7 +890,7 @@
         state.settings.theme = theme;
         localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
         
-        document.querySelectorAll('.theme-card').forEach(function(card) {
+        document.querySelectorAll('.theme-card').forEach(card => {
             card.classList.remove('active');
             if (card.dataset.theme === theme) {
                 card.classList.add('active');
@@ -975,6 +899,7 @@
 
         const root = document.documentElement;
         
+        // Reset all theme variables first
         root.style.setProperty('--bg-primary', '');
         root.style.setProperty('--bg-secondary', '');
         root.style.setProperty('--bg-tertiary', '');
@@ -988,53 +913,49 @@
             root.style.setProperty('--bg-primary', '#0a0a0a');
             root.style.setProperty('--bg-secondary', '#141414');
             root.style.setProperty('--bg-tertiary', '#1a1a1a');
-            root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.75)');
+            root.style.setProperty('--bg-card', '#1e1e1e');
             root.style.setProperty('--text-primary', '#f0f0f0');
             root.style.setProperty('--text-secondary', '#999');
             root.style.setProperty('--dark-purple', '#2d1b69');
             root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
-            document.body.classList.remove('light-theme');
         } else if (theme === 'light') {
             root.style.setProperty('--bg-primary', '#f5f5f5');
             root.style.setProperty('--bg-secondary', '#ffffff');
             root.style.setProperty('--bg-tertiary', '#f0f0f0');
-            root.style.setProperty('--bg-card', 'rgba(255, 255, 255, 0.8)');
+            root.style.setProperty('--bg-card', '#ffffff');
             root.style.setProperty('--text-primary', '#1a1a1a');
             root.style.setProperty('--text-secondary', '#666');
             root.style.setProperty('--dark-purple', '#4a2b8a');
             root.style.setProperty('--dark-purple-glow', 'rgba(74, 43, 138, 0.2)');
-            document.body.classList.add('light-theme');
         } else if (theme === 'midnight') {
             root.style.setProperty('--bg-primary', '#0a0e1a');
             root.style.setProperty('--bg-secondary', '#0f1524');
             root.style.setProperty('--bg-tertiary', '#141c2e');
-            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.75)');
+            root.style.setProperty('--bg-card', '#1a2238');
             root.style.setProperty('--text-primary', '#7b9ac9');
             root.style.setProperty('--text-secondary', '#5a7a9a');
             root.style.setProperty('--dark-purple', '#1a2a5a');
             root.style.setProperty('--dark-purple-glow', 'rgba(26, 42, 90, 0.3)');
-            document.body.classList.remove('light-theme');
         } else if (theme === 'forest') {
             root.style.setProperty('--bg-primary', '#0d1a0d');
             root.style.setProperty('--bg-secondary', '#122412');
             root.style.setProperty('--bg-tertiary', '#1a2e1a');
-            root.style.setProperty('--bg-card', 'rgba(31, 58, 31, 0.75)');
+            root.style.setProperty('--bg-card', '#1f3a1f');
             root.style.setProperty('--text-primary', '#7bc97b');
             root.style.setProperty('--text-secondary', '#5a9a5a');
             root.style.setProperty('--dark-purple', '#1a4a1a');
             root.style.setProperty('--dark-purple-glow', 'rgba(26, 74, 26, 0.3)');
-            document.body.classList.remove('light-theme');
         } else if (theme === 'ocean') {
             root.style.setProperty('--bg-primary', '#0a0d1a');
             root.style.setProperty('--bg-secondary', '#0f1524');
             root.style.setProperty('--bg-tertiary', '#141c2e');
-            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.75)');
+            root.style.setProperty('--bg-card', '#1a2238');
             root.style.setProperty('--text-primary', '#7b9ac9');
             root.style.setProperty('--text-secondary', '#5a7a9a');
             root.style.setProperty('--dark-purple', '#1a3a6a');
             root.style.setProperty('--dark-purple-glow', 'rgba(26, 58, 106, 0.3)');
-            document.body.classList.remove('light-theme');
         } else if (theme === 'custom') {
+            // Load custom colors
             const customTheme = localStorage.getItem('vvn_custom_theme');
             if (customTheme) {
                 const ct = JSON.parse(customTheme);
@@ -1044,18 +965,13 @@
                 root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
                 root.style.setProperty('--bg-primary', '#0a0a0a');
                 root.style.setProperty('--bg-tertiary', '#1a1a1a');
-                root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.75)');
+                root.style.setProperty('--bg-card', '#1e1e1e');
                 root.style.setProperty('--text-secondary', '#999');
             }
-            if (document.getElementById('customThemeOptions')) {
-                document.getElementById('customThemeOptions').style.display = 'block';
-            }
-            document.body.classList.remove('light-theme');
+            document.getElementById('customThemeOptions').style.display = 'block';
             return;
         }
-        if (document.getElementById('customThemeOptions')) {
-            document.getElementById('customThemeOptions').style.display = 'none';
-        }
+        document.getElementById('customThemeOptions').style.display = 'none';
     }
 
     function applyCustomTheme() {
@@ -1083,24 +999,23 @@
         selectionMode = !selectionMode;
         if (selectionMode) {
             if (DOM.selectBtn) DOM.selectBtn.classList.add('active');
-            document.querySelectorAll('.message').forEach(function(msg) {
+            document.querySelectorAll('.message').forEach(msg => {
                 msg.classList.add('selectable');
             });
             if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('active');
         } else {
             clearSelection();
             if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
-            document.querySelectorAll('.message').forEach(function(msg) {
+            document.querySelectorAll('.message').forEach(msg => {
                 msg.classList.remove('selectable');
             });
             if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
         }
-        closeDropdown();
     }
 
     function toggleMessageSelection(messageId) {
         if (!selectionMode) return;
-        const msgElement = document.querySelector('[data-msg-id="' + messageId + '"]');
+        const msgElement = document.querySelector(`[data-msg-id="${messageId}"]`);
         if (!msgElement) return;
         
         if (selectedMessages.has(messageId)) {
@@ -1115,13 +1030,13 @@
 
     function clearSelection() {
         selectedMessages.clear();
-        document.querySelectorAll('.message.selected').forEach(function(el) {
+        document.querySelectorAll('.message.selected').forEach(el => {
             el.classList.remove('selected');
         });
         updateSelectedCount();
         selectionMode = false;
         if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
-        document.querySelectorAll('.message').forEach(function(msg) {
+        document.querySelectorAll('.message').forEach(msg => {
             msg.classList.remove('selectable');
         });
         if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
@@ -1139,13 +1054,12 @@
         if (DOM.deleteModal) DOM.deleteModal.classList.add('active');
     }
 
-    function deleteMessages(forEveryone) {
-        if (forEveryone === undefined) forEveryone = false;
+    function deleteMessages(forEveryone = false) {
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages[chatKey] || [];
         
-        const remaining = messages.filter(function(msg, index) {
-            const msgId = msg.timestamp + '-' + index;
+        const remaining = messages.filter((msg, index) => {
+            const msgId = `${msg.timestamp}-${index}`;
             return !selectedMessages.has(msgId);
         });
         
@@ -1170,9 +1084,7 @@
         const timestamp = parseInt(parts[0]);
         const index = parseInt(parts[1]);
         
-        const msg = messages.find(function(m, i) {
-            return m.timestamp === timestamp && i === index;
-        });
+        const msg = messages.find((m, i) => m.timestamp === timestamp && i === index);
         if (msg) {
             if (!pinnedMessages[chatKey]) pinnedMessages[chatKey] = [];
             pinnedMessages[chatKey].push(msg);
@@ -1191,7 +1103,8 @@
         DOM.pinnedDock.style.display = 'block';
         const lastPinned = pinned[pinned.length - 1];
         if (DOM.pinnedMessagePreview) {
-            DOM.pinnedMessagePreview.textContent = getDisplayName(lastPinned.sender) + ': ' + (lastPinned.text || '📎 File');
+            DOM.pinnedMessagePreview.textContent = 
+                `${getDisplayName(lastPinned.sender)}: ${lastPinned.text || '📎 File'}`;
         }
     }
 
@@ -1209,14 +1122,14 @@
     }
 
     function scrollToPinnedMessage() {
-        document.querySelectorAll('.message').forEach(function(el) {
+        document.querySelectorAll('.message').forEach(el => {
             el.classList.remove('highlight');
         });
         const firstMsg = document.querySelector('.message');
         if (firstMsg) {
             firstMsg.classList.add('highlight');
             firstMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(function() {
+            setTimeout(() => {
                 firstMsg.classList.remove('highlight');
             }, 2000);
         }
@@ -1225,7 +1138,6 @@
     // ---------- USER SETTINGS FUNCTIONS ----------
     function openUserSettings() {
         if (DOM.userSettingsModal) DOM.userSettingsModal.classList.add('active');
-        closeDropdown();
     }
 
     function renameContact() {
@@ -1242,7 +1154,7 @@
     }
 
     function deleteContact() {
-        if (confirm('Delete contact ' + state.currentChatPartner + '? This will remove the chat from your list.')) {
+        if (confirm(`Delete contact ${state.currentChatPartner}? This will remove the chat from your list.`)) {
             const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
             delete state.localCache.chats[chatKey];
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
@@ -1255,7 +1167,7 @@
     }
 
     function blockUser() {
-        if (confirm('Block ' + state.currentChatPartner + '? You won\'t receive messages from them.')) {
+        if (confirm(`Block ${state.currentChatPartner}? You won't receive messages from them.`)) {
             if (!blockedUsers.includes(state.currentChatPartner)) {
                 blockedUsers.push(state.currentChatPartner);
                 localStorage.setItem('vvn_blocked', JSON.stringify(blockedUsers));
@@ -1287,17 +1199,16 @@
     // ---------- CHAT SETTINGS FUNCTIONS ----------
     function openChatSettings() {
         if (DOM.chatSettingsModal) DOM.chatSettingsModal.classList.add('active');
-        closeDropdown();
     }
 
     function changeBubbleStyle(style) {
         chatSettings.bubbleStyle = style;
         localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-        document.querySelectorAll('.message').forEach(function(msg) {
+        document.querySelectorAll('.message').forEach(msg => {
             msg.className = msg.className.replace(/bubble-\w+/g, '');
             msg.classList.add('bubble-' + style);
         });
-        document.querySelectorAll('.bubble-style').forEach(function(btn) {
+        document.querySelectorAll('.bubble-style').forEach(btn => {
             btn.classList.remove('active');
             if (btn.dataset.style === style) btn.classList.add('active');
         });
@@ -1325,7 +1236,7 @@
                 chatSettings.background = 'custom';
                 chatSettings.bgImage = ev.target.result;
                 if (DOM.chatMessages) {
-                    DOM.chatMessages.style.backgroundImage = 'url(' + ev.target.result + ')';
+                    DOM.chatMessages.style.backgroundImage = `url(${ev.target.result})`;
                     DOM.chatMessages.style.backgroundSize = 'cover';
                     DOM.chatMessages.style.backgroundPosition = 'center';
                 }
@@ -1337,7 +1248,7 @@
 
     function applyChatBackground() {
         if (chatSettings.background === 'custom' && chatSettings.bgImage && DOM.chatMessages) {
-            DOM.chatMessages.style.backgroundImage = 'url(' + chatSettings.bgImage + ')';
+            DOM.chatMessages.style.backgroundImage = `url(${chatSettings.bgImage})`;
             DOM.chatMessages.style.backgroundSize = 'cover';
             DOM.chatMessages.style.backgroundPosition = 'center';
         } else if (DOM.chatMessages) {
@@ -1363,10 +1274,11 @@
     // ---------- FILE ATTACHMENT ----------
     function openFileModal() {
         if (DOM.fileModal) DOM.fileModal.classList.add('active');
-        if (DOM.filePreviewContainer) DOM.filePreviewContainer.innerHTML = '';
+        if (DOM.filePreviewImage) DOM.filePreviewImage.src = 'icons/image-placeholder.png';
+        if (DOM.filePreviewVideo) DOM.filePreviewVideo.style.display = 'none';
         if (DOM.fileCaption) DOM.fileCaption.value = '';
-        if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
-        pendingFiles = [];
+        pendingFile = null;
+        pendingFileType = null;
     }
 
     function handleFileSelect() {
@@ -1374,52 +1286,30 @@
     }
 
     function handleFileInput(e) {
-        const files = e.target.files;
-        if (!files.length) return;
+        const file = e.target.files[0];
+        if (!file) return;
         
-        for (const file of files) {
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                const data = ev.target.result;
-                const fileType = file.type.startsWith('image/') ? 'image' : 'video';
-                
-                pendingFiles.push({
-                    data: data,
-                    type: fileType,
-                    name: file.name
-                });
-                
-                if (DOM.filePreviewContainer) {
-                    const item = document.createElement('div');
-                    item.className = 'file-preview-item';
-                    const index = pendingFiles.length - 1;
-                    item.innerHTML = (fileType === 'image' ? '<img src="' + data + '" />' : '<video controls><source src="' + data + '" /></video>') +
-                        '<button class="remove-file" data-index="' + index + '">×</button>';
-                    DOM.filePreviewContainer.appendChild(item);
-                    
-                    // Add remove handler
-                    item.querySelector('.remove-file').addEventListener('click', function() {
-                        const idx = parseInt(this.dataset.index);
-                        pendingFiles.splice(idx, 1);
-                        this.parentElement.remove();
-                        if (pendingFiles.length === 0 && DOM.fileClearBtn) {
-                            DOM.fileClearBtn.style.display = 'none';
-                        }
-                    });
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            const data = ev.target.result;
+            if (file.type.startsWith('image/')) {
+                pendingFileType = 'image';
+                if (DOM.filePreviewImage) {
+                    DOM.filePreviewImage.src = data;
+                    DOM.filePreviewImage.style.display = 'block';
                 }
-                
-                if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'inline-flex';
-            };
-            reader.readAsDataURL(file);
-        }
-        e.target.value = '';
-    }
-
-    function clearAllFiles() {
-        pendingFiles = [];
-        if (DOM.filePreviewContainer) DOM.filePreviewContainer.innerHTML = '';
-        if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
-        if (DOM.fileCaption) DOM.fileCaption.value = '';
+                if (DOM.filePreviewVideo) DOM.filePreviewVideo.style.display = 'none';
+            } else if (file.type.startsWith('video/')) {
+                pendingFileType = 'video';
+                if (DOM.filePreviewVideo) {
+                    DOM.filePreviewVideo.src = data;
+                    DOM.filePreviewVideo.style.display = 'block';
+                }
+                if (DOM.filePreviewImage) DOM.filePreviewImage.style.display = 'none';
+            }
+            pendingFile = data;
+        };
+        reader.readAsDataURL(file);
     }
 
     // ---------- LOAD SAVED SETTINGS ----------
@@ -1475,15 +1365,6 @@
             Notification.requestPermission();
         }
 
-        // Check for saved device or auto-detect
-        const savedDevice = localStorage.getItem('vvn_device');
-        if (savedDevice && typeof applyDeviceLayout === 'function') {
-            applyDeviceLayout(savedDevice);
-        } else if (typeof detectDevice === 'function') {
-            const detected = detectDevice();
-            applyDeviceLayout(detected);
-        }
-
         const cached = localStorage.getItem('vvn_cache');
         if (cached) {
             try {
@@ -1496,7 +1377,7 @@
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
-            if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
+            if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
                 state.localCache.users.push({
                     username: 'vaultnet',
                     displayName: 'VaultNet',
@@ -1520,7 +1401,7 @@
                     chats: remote.chats || {},
                     messages: remote.messages || {}
                 };
-                if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
+                if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
                     state.localCache.users.push({
                         username: 'vaultnet',
                         displayName: 'VaultNet',
@@ -1540,6 +1421,7 @@
 
         updateLoading(80);
 
+        // Apply saved theme
         if (state.settings.theme) {
             applyTheme(state.settings.theme);
         }
@@ -1548,7 +1430,7 @@
 
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
-            const user = state.localCache.users.find(function(u) { return u.username === session.username; });
+            const user = state.localCache.users.find(u => u.username === session.username);
             if (user) {
                 state.currentUser = user;
                 renderMessenger();
@@ -1563,19 +1445,19 @@
             }
         }
 
-        // Show device selection first, then auth
-        showDeviceSelection();
+        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
+        if (DOM.messenger) DOM.messenger.style.display = 'none';
         updateLoading(100);
     }
 
     // ---------- EVENT LISTENERS ----------
     document.addEventListener('DOMContentLoaded', function() {
         // Auth tabs
-        document.querySelectorAll('.auth-tab').forEach(function(tab) {
+        document.querySelectorAll('.auth-tab').forEach(tab => {
             tab.addEventListener('click', function() {
-                document.querySelectorAll('.auth-tab').forEach(function(t) { t.classList.remove('active'); });
+                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                document.querySelectorAll('.auth-form').forEach(function(f) { f.classList.remove('active'); });
+                document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
                 const form = document.getElementById(this.dataset.tab + 'Form');
                 if (form) form.classList.add('active');
             });
@@ -1583,7 +1465,7 @@
 
         // Login
         if (DOM.loginForm) {
-            DOM.loginForm.addEventListener('submit', async function(e) {
+            DOM.loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const username = DOM.loginUsername ? DOM.loginUsername.value.trim() : '';
                 const password = DOM.loginPassword ? DOM.loginPassword.value.trim() : '';
@@ -1600,7 +1482,7 @@
 
         // Register
         if (DOM.registerForm) {
-            DOM.registerForm.addEventListener('submit', async function(e) {
+            DOM.registerForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const username = DOM.regUsername ? DOM.regUsername.value.trim() : '';
                 const displayName = DOM.regDisplayName ? DOM.regDisplayName.value.trim() : '';
@@ -1628,7 +1510,7 @@
             DOM.sendBtn.addEventListener('click', sendMessage);
         }
         if (DOM.messageInput) {
-            DOM.messageInput.addEventListener('keydown', function(e) {
+            DOM.messageInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') sendMessage();
                 updateActivity();
             });
@@ -1660,7 +1542,7 @@
             });
         }
 
-        // Profile button (in header)
+        // Profile button
         if (DOM.profileBtn) {
             DOM.profileBtn.addEventListener('click', function() {
                 if (state.currentChatPartner) {
@@ -1669,7 +1551,7 @@
             });
         }
 
-        // Chat header click for profile
+        // Chat header click
         if (DOM.chatHeaderInfo) {
             DOM.chatHeaderInfo.addEventListener('click', function() {
                 if (state.currentChatPartner) {
@@ -1678,22 +1560,22 @@
             });
         }
 
-        // Settings button (sidebar)
+        // Settings
         if (DOM.settingsBtn) {
             DOM.settingsBtn.addEventListener('click', openSettings);
         }
         if (DOM.settingsClose) {
-            DOM.settingsClose.addEventListener('click', function() {
+            DOM.settingsClose.addEventListener('click', () => {
                 if (DOM.settingsModal) DOM.settingsModal.classList.remove('active');
             });
         }
 
         // Settings tabs
-        document.querySelectorAll('.settings-tab').forEach(function(tab) {
+        document.querySelectorAll('.settings-tab').forEach(tab => {
             tab.addEventListener('click', function() {
-                document.querySelectorAll('.settings-tab').forEach(function(t) { t.classList.remove('active'); });
+                document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                document.querySelectorAll('.settings-panel').forEach(function(p) { p.classList.remove('active'); });
+                document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
                 const panel = document.getElementById(this.dataset.tab + 'Settings');
                 if (panel) panel.classList.add('active');
             });
@@ -1760,15 +1642,8 @@
             });
         }
 
-        if (DOM.messageDelivery) {
-            DOM.messageDelivery.addEventListener('change', function() {
-                state.settings.messageDelivery = this.value;
-                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
-            });
-        }
-
         // Theme cards
-        document.querySelectorAll('.theme-card').forEach(function(card) {
+        document.querySelectorAll('.theme-card').forEach(card => {
             card.addEventListener('click', function() {
                 const theme = this.dataset.theme;
                 applyTheme(theme);
@@ -1794,9 +1669,7 @@
                         const user = state.currentUser;
                         if (user) {
                             user.avatar = ev.target.result;
-                            const userIndex = state.localCache.users.findIndex(function(u) {
-                                return u.username === user.username;
-                            });
+                            const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
                             if (userIndex !== -1) {
                                 state.localCache.users[userIndex] = user;
                                 localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
@@ -1810,16 +1683,14 @@
 
         // Modal close
         if (DOM.modalClose) {
-            DOM.modalClose.addEventListener('click', function() {
+            DOM.modalClose.addEventListener('click', () => {
                 if (DOM.profileModal) DOM.profileModal.classList.remove('active');
             });
         }
         if (DOM.profileModal) {
             const overlay = DOM.profileModal.querySelector('.modal-overlay');
             if (overlay) {
-                overlay.addEventListener('click', function() {
-                    DOM.profileModal.classList.remove('active');
-                });
+                overlay.addEventListener('click', () => DOM.profileModal.classList.remove('active'));
             }
         }
 
@@ -1828,50 +1699,13 @@
             DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
         }
 
-        // ---------- DEVICE SELECTION ----------
-        document.querySelectorAll('.device-option').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                const device = this.dataset.device;
-                selectDevice(device);
-            });
-        });
-
-        if (DOM.autoDetectBtn) {
-            DOM.autoDetectBtn.addEventListener('click', function() {
-                if (typeof detectDevice === 'function') {
-                    const detected = detectDevice();
-                    selectDevice(detected);
-                }
-            });
-        }
-
-        // ---------- DROPDOWN MENU ----------
-        if (DOM.chatDropdownBtn) {
-            DOM.chatDropdownBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleDropdown();
-            });
-        }
-
-        document.querySelectorAll('.dropdown-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                const action = this.dataset.action;
-                handleDropdownAction(action);
-                closeDropdown();
-            });
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.dropdown-trigger') && !e.target.closest('.dropdown-menu')) {
-                closeDropdown();
-            }
-        });
-
-        // ---------- SELECTION ----------
+        // ---------- NEW EVENT LISTENERS ----------
+        // Selection
         if (DOM.selectBtn) {
             DOM.selectBtn.addEventListener('click', toggleSelectionMode);
         }
 
+        // Message click for selection
         document.addEventListener('click', function(e) {
             const msgEl = e.target.closest('.message');
             if (msgEl && selectionMode) {
@@ -1880,6 +1714,7 @@
             }
         });
 
+        // Selection toolbar buttons
         if (DOM.deleteSelectedBtn) {
             DOM.deleteSelectedBtn.addEventListener('click', showDeleteModal);
         }
@@ -1892,20 +1727,18 @@
 
         // Delete modal
         if (DOM.deleteForMeBtn) {
-            DOM.deleteForMeBtn.addEventListener('click', function() { deleteMessages(false); });
+            DOM.deleteForMeBtn.addEventListener('click', () => deleteMessages(false));
         }
         if (DOM.deleteForEveryoneBtn) {
-            DOM.deleteForEveryoneBtn.addEventListener('click', function() { deleteMessages(true); });
+            DOM.deleteForEveryoneBtn.addEventListener('click', () => deleteMessages(true));
         }
         if (DOM.deleteModalClose) {
-            DOM.deleteModalClose.addEventListener('click', function() {
-                DOM.deleteModal.classList.remove('active');
-            });
+            DOM.deleteModalClose.addEventListener('click', () => DOM.deleteModal.classList.remove('active'));
         }
 
         // Pinned dock
         if (DOM.unpinBtn) {
-            DOM.unpinBtn.addEventListener('click', function() {
+            DOM.unpinBtn.addEventListener('click', () => {
                 const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
                 if (chatKey) unpinMessage(chatKey);
             });
@@ -1919,9 +1752,7 @@
             DOM.userSettingsBtn.addEventListener('click', openUserSettings);
         }
         if (DOM.userSettingsClose) {
-            DOM.userSettingsClose.addEventListener('click', function() {
-                DOM.userSettingsModal.classList.remove('active');
-            });
+            DOM.userSettingsClose.addEventListener('click', () => DOM.userSettingsModal.classList.remove('active'));
         }
         if (DOM.renameContactBtn) {
             DOM.renameContactBtn.addEventListener('click', renameContact);
@@ -1944,20 +1775,18 @@
             DOM.chatSettingsBtn.addEventListener('click', openChatSettings);
         }
         if (DOM.chatSettingsClose) {
-            DOM.chatSettingsClose.addEventListener('click', function() {
-                DOM.chatSettingsModal.classList.remove('active');
-            });
+            DOM.chatSettingsClose.addEventListener('click', () => DOM.chatSettingsModal.classList.remove('active'));
         }
-        document.querySelectorAll('.bubble-style').forEach(function(btn) {
+        document.querySelectorAll('.bubble-style').forEach(btn => {
             btn.addEventListener('click', function() {
                 changeBubbleStyle(this.dataset.style);
             });
         });
         if (DOM.bgDefault) {
-            DOM.bgDefault.addEventListener('click', function() { changeChatBackground('default'); });
+            DOM.bgDefault.addEventListener('click', () => changeChatBackground('default'));
         }
         if (DOM.bgCustom) {
-            DOM.bgCustom.addEventListener('click', function() { changeChatBackground('custom'); });
+            DOM.bgCustom.addEventListener('click', () => changeChatBackground('custom'));
         }
         if (DOM.bgUpload) {
             DOM.bgUpload.addEventListener('change', handleBackgroundUpload);
@@ -1971,9 +1800,7 @@
             DOM.clipBtn.addEventListener('click', openFileModal);
         }
         if (DOM.fileModalClose) {
-            DOM.fileModalClose.addEventListener('click', function() {
-                DOM.fileModal.classList.remove('active');
-            });
+            DOM.fileModalClose.addEventListener('click', () => DOM.fileModal.classList.remove('active'));
         }
         if (DOM.fileSelectBtn) {
             DOM.fileSelectBtn.addEventListener('click', handleFileSelect);
@@ -1981,15 +1808,27 @@
         if (DOM.fileInput) {
             DOM.fileInput.addEventListener('change', handleFileInput);
         }
-        if (DOM.fileClearBtn) {
-            DOM.fileClearBtn.addEventListener('click', clearAllFiles);
-        }
         if (DOM.fileSendBtn) {
             DOM.fileSendBtn.addEventListener('click', sendMessage);
         }
 
+        // Theme button in profile
+        if (DOM.themeBtn) {
+            DOM.themeBtn.addEventListener('click', function() {
+                DOM.profileModal.classList.remove('active');
+                openSettings();
+                // Switch to themes tab
+                document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+                const themesTab = document.querySelector('.settings-tab[data-tab="themes"]');
+                if (themesTab) themesTab.classList.add('active');
+                const themesPanel = document.getElementById('themesSettings');
+                if (themesPanel) themesPanel.classList.add('active');
+            });
+        }
+
         // Close modals on overlay click
-        document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function() {
                 this.parentElement.classList.remove('active');
             });
@@ -2012,6 +1851,6 @@
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
         console.log('🎨 5 Themes available: Dark, Light, Midnight, Forest, Ocean');
-        console.log('🔒 Message delivery: End-to-End Encrypted');
+        console.log('🔒 3 New Security settings: Auto-Lock, Session Timeout, Message History');
     });
 })();
