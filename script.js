@@ -45,6 +45,8 @@
         deviceScreen: document.getElementById('deviceScreen'),
         authScreen: document.getElementById('authScreen'),
         messenger: document.getElementById('messenger'),
+        statusBar: document.getElementById('statusBar'),
+        messengerLayout: document.getElementById('messengerLayout'),
         authError: document.getElementById('authError'),
         regError: document.getElementById('regError'),
         loginForm: document.getElementById('loginForm'),
@@ -69,6 +71,7 @@
         messageInput: document.getElementById('messageInput'),
         sendBtn: document.getElementById('sendBtn'),
         backBtn: document.getElementById('backBtn'),
+        profileBtn: document.getElementById('profileBtn'),
         settingsBtn: document.getElementById('settingsBtn'),
         syncDot: document.getElementById('syncDot'),
         syncStatus: document.getElementById('syncStatus'),
@@ -106,6 +109,8 @@
         selectBtn: document.getElementById('selectBtn'),
         userSettingsBtn: document.getElementById('userSettingsBtn'),
         chatSettingsBtn: document.getElementById('chatSettingsBtn'),
+        chatDropdownBtn: document.getElementById('chatDropdownBtn'),
+        dropdownMenu: document.getElementById('dropdownMenu'),
         selectionToolbar: document.getElementById('selectionToolbar'),
         selectedCount: document.getElementById('selectedCount'),
         deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
@@ -131,8 +136,6 @@
         bgCustom: document.getElementById('bgCustom'),
         bgUpload: document.getElementById('bgUpload'),
         createNoteBtn: document.getElementById('createNoteBtn'),
-        chatDropdownBtn: document.getElementById('chatDropdownBtn'),
-        dropdownMenu: document.getElementById('dropdownMenu'),
         autoDetectBtn: document.getElementById('autoDetectBtn'),
         deviceIndicator: document.getElementById('deviceIndicator'),
         autoLockTimer: document.getElementById('autoLockTimer'),
@@ -152,9 +155,7 @@
         filePreviewContainer: document.getElementById('filePreviewContainer'),
         fileClearBtn: document.getElementById('fileClearBtn'),
         fileCaption: document.getElementById('fileCaption'),
-        fileSendBtn: document.getElementById('fileSendBtn'),
-        statusBar: document.getElementById('statusBar'),
-        messengerLayout: document.getElementById('messengerLayout')
+        fileSendBtn: document.getElementById('fileSendBtn')
     };
 
     // ---------- STATE VARIABLES ----------
@@ -172,7 +173,7 @@
     let autoLockTimeout = null;
     let lastActivity = Date.now();
 
-    // ---------- SAMPLE MESSAGES ----------
+    // ---------- SAMPLE MESSAGES (only for first-time users) ----------
     const sampleMessages = [{
         type: 'text',
         sender: 'incoming',
@@ -244,7 +245,7 @@
     }
 
     function getUserByUsername(username) {
-        return state.localCache.users.find(function(u) { return u.username === username; });
+        return state.localCache.users.find(u => u.username === username);
     }
 
     function getChatKey(u1, u2) {
@@ -255,6 +256,10 @@
         if (contactCustomNames[username]) return contactCustomNames[username];
         const user = getUserByUsername(username);
         return user ? user.displayName || username : username;
+    }
+
+    function getIconPath(name) {
+        return 'icons/' + name + '.png';
     }
 
     // ---------- NOTIFICATIONS ----------
@@ -370,7 +375,7 @@
                     for (const msg of newMsgs) {
                         if (msg.sender !== state.currentUser?.username) {
                             hasNewMessages = true;
-                            const partner = key.split('_').find(function(u) { return u !== state.currentUser?.username; });
+                            const partner = key.split('_').find(u => u !== state.currentUser?.username);
                             if (partner && state.currentUser) {
                                 sendNotification(partner, msg.text || '📎 File', formatTime(msg.timestamp));
                             }
@@ -383,7 +388,7 @@
             const localUsers = state.localCache.users || [];
             const mergedUsers = [...localUsers];
             for (const rUser of remoteUsers) {
-                if (!mergedUsers.find(function(u) { return u.username === rUser.username; })) {
+                if (!mergedUsers.find(u => u.username === rUser.username)) {
                     mergedUsers.push(rUser);
                 }
             }
@@ -465,7 +470,7 @@
     // ---------- AUTH ----------
     async function loginUser(username, password) {
         const users = state.localCache.users;
-        const user = users.find(function(u) { return u.username === username && u.password === password; });
+        const user = users.find(u => u.username === username && u.password === password);
         if (!user) {
             if (DOM.authError) {
                 DOM.authError.textContent = 'Incorrect username or password';
@@ -482,7 +487,7 @@
 
     async function registerUser(username, displayName, password) {
         const users = state.localCache.users;
-        if (users.find(function(u) { return u.username === username; })) {
+        if (users.find(u => u.username === username)) {
             if (DOM.regError) {
                 DOM.regError.textContent = 'Username already taken';
                 DOM.regError.style.display = 'block';
@@ -518,7 +523,7 @@
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (!session) { logout(); return; }
 
-        const user = state.localCache.users.find(function(u) { return u.username === session.username; });
+        const user = state.localCache.users.find(u => u.username === session.username);
         if (!user) { logout(); return; }
 
         state.currentUser = user;
@@ -1454,6 +1459,7 @@
                     const item = document.createElement('div');
                     item.className = 'file-preview-item';
                     const index = pendingFiles.length - 1;
+                    const icon = fileType === 'image' ? 'image-placeholder.png' : 'video.png';
                     item.innerHTML = (fileType === 'image' ? '<img src="' + data + '" />' : '<video controls><source src="' + data + '" /></video>') +
                         '<button class="remove-file" data-index="' + index + '">×</button>';
                     DOM.filePreviewContainer.appendChild(item);
@@ -1532,12 +1538,15 @@
         }
         updateLoading(5);
 
+        // Load saved settings
         loadSavedSettings();
 
+        // Request notification permission
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
 
+        // Check for saved device or auto-detect
         const savedDevice = localStorage.getItem('vvn_device');
         if (savedDevice && ['phone', 'tablet', 'pc'].includes(savedDevice)) {
             selectDevice(savedDevice);
@@ -1545,6 +1554,7 @@
             showDeviceSelection();
         }
 
+        // Load from cache
         const cached = localStorage.getItem('vvn_cache');
         if (cached) {
             try {
@@ -1557,6 +1567,7 @@
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
+            // Create default owner account if no users exist
             if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
                 state.localCache.users.push({
                     username: 'vaultnet',
@@ -1569,6 +1580,7 @@
                 });
                 console.log('👤 Default owner account created: vaultnet / admin123');
             }
+            // Add sample messages for first-time users
             if (Object.keys(state.localCache.messages).length === 0) {
                 state.localCache.messages = {
                     'testmessages_vaultnet': sampleMessages.map(function(msg, i) {
@@ -1590,15 +1602,9 @@
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         }
 
-        const bg = document.querySelector('.chat-bg-pattern');
-        if (bg) {
-            const randomPattern = patterns[Math.floor(Math.random() * patterns.length)];
-            bg.className = 'chat-bg-pattern ' + randomPattern;
-            currentPatternIndex = patterns.indexOf(randomPattern);
-        }
-
         updateLoading(50);
 
+        // Try to sync with JSONBin
         try {
             const remote = await fetchFromBin();
             if (remote) {
@@ -1607,6 +1613,7 @@
                     chats: remote.chats || {},
                     messages: remote.messages || {}
                 };
+                // Ensure default owner exists
                 if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
                     state.localCache.users.push({
                         username: 'vaultnet',
@@ -1627,17 +1634,28 @@
 
         updateLoading(80);
 
+        // Apply theme
         if (state.settings.theme) {
             applyTheme(state.settings.theme);
         }
 
+        // Set initial pattern
+        const bg = document.querySelector('.chat-bg-pattern');
+        if (bg) {
+            const randomPattern = patterns[Math.floor(Math.random() * patterns.length)];
+            bg.className = 'chat-bg-pattern ' + randomPattern;
+            currentPatternIndex = patterns.indexOf(randomPattern);
+        }
+
         updateLoading(90);
 
+        // Check session
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
             const user = state.localCache.users.find(function(u) { return u.username === session.username; });
             if (user) {
                 state.currentUser = user;
+                // Hide device screen if visible
                 if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
                 if (DOM.statusBar) DOM.statusBar.style.display = 'flex';
                 if (DOM.messengerLayout) DOM.messengerLayout.style.display = 'flex';
@@ -1653,6 +1671,7 @@
             }
         }
 
+        // Show device selection or auth
         if (savedDevice) {
             if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
             if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
@@ -1751,6 +1770,24 @@
                     state.currentChatPartner = null;
                     showPlaceholder();
                     renderChatList();
+                }
+            });
+        }
+
+        // Profile button (in header)
+        if (DOM.profileBtn) {
+            DOM.profileBtn.addEventListener('click', function() {
+                if (state.currentChatPartner) {
+                    showProfile(state.currentChatPartner);
+                }
+            });
+        }
+
+        // Chat header click for profile
+        if (DOM.chatHeaderInfo) {
+            DOM.chatHeaderInfo.addEventListener('click', function() {
+                if (state.currentChatPartner) {
+                    showProfile(state.currentChatPartner);
                 }
             });
         }
@@ -1905,7 +1942,7 @@
             DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
         }
 
-        // Device selection
+        // ---------- DEVICE SELECTION ----------
         document.querySelectorAll('.device-option').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 const device = this.dataset.device;
@@ -1924,7 +1961,7 @@
             });
         }
 
-        // Dropdown menu
+        // ---------- DROPDOWN MENU ----------
         if (DOM.chatDropdownBtn) {
             DOM.chatDropdownBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -1946,7 +1983,7 @@
             }
         });
 
-        // Selection
+        // ---------- SELECTION ----------
         if (DOM.selectBtn) {
             DOM.selectBtn.addEventListener('click', toggleSelectionMode);
         }
@@ -2074,7 +2111,7 @@
             });
         });
 
-        // Activity tracking
+        // Activity tracking for auto-lock
         document.addEventListener('click', updateActivity);
         document.addEventListener('keydown', updateActivity);
         document.addEventListener('mousemove', updateActivity);
@@ -2091,7 +2128,7 @@
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
         console.log('🎨 5 background patterns available');
-        console.log('💎 Glassmorphism UI with floating island input');
+        console.log('💎 Life glass effect with 80% clarity');
         console.log('📏 Floating island input: 118px height + 40px bottom padding');
     });
 })();
