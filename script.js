@@ -1,6 +1,5 @@
 // VVN Messenger - Main Application
 
-// Wait for CONFIG to be available
 (function() {
     'use strict';
 
@@ -24,11 +23,11 @@
     const CONFIG = window.CONFIG || {
         BIN_ID: '6a5222dbda38895dfe4ef18e',
         MASTER_KEY: '$2a$10$xpnzNbyjOgRS6s..YVAMhOqwuj/FOPnU15M2J9uSwHBsRJAygi1Lu',
-        OWNERS: ['vaultnet', 'VVNTERS'],
-        DEVS: ['vaultnet', 'VVNTERS'],
+        OWNERS: ['vaultnet', 'vvnters'],
+        DEVS: ['vaultnet', 'vvnters'],
         ADMINS: ['vaultnet'],
         MODS: ['vaultnet'],
-        STAFF: ['vaultnet', 'vnnters'],
+        STAFF: ['vaultnet', 'vvnters'],
         DEV_PIN: '2356-23543-13451-78901-23456',
         SYNC_INTERVAL: 5000
     };
@@ -69,13 +68,15 @@
         syncStatus: document.getElementById('syncStatus'),
         manualSyncBtn: document.getElementById('manualSyncBtn'),
         profileModal: document.getElementById('profileModal'),
-        profileCard: document.getElementById('profileCard'),
         profileAvatar: document.getElementById('profileAvatar'),
         profileDisplayName: document.getElementById('profileDisplayName'),
         profileUsername: document.getElementById('profileUsername'),
         profileBio: document.getElementById('profileBio'),
         profileJoined: document.getElementById('profileJoined'),
+        profileAge: document.getElementById('profileAge'),
         profileTags: document.getElementById('profileTags'),
+        profilePassword: document.getElementById('profilePassword'),
+        profileUserID: document.getElementById('profileUserID'),
         modalClose: document.getElementById('modalClose'),
         settingsModal: document.getElementById('settingsModal'),
         settingsClose: document.getElementById('settingsClose'),
@@ -95,8 +96,67 @@
         privacyStatus: document.getElementById('privacyStatus'),
         devStatus: document.getElementById('devStatus'),
         chatAvatar: document.getElementById('chatAvatar'),
-        chatHeaderInfo: document.getElementById('chatHeaderInfo')
+        chatHeaderInfo: document.getElementById('chatHeaderInfo'),
+        // New elements
+        selectBtn: document.getElementById('selectBtn'),
+        userSettingsBtn: document.getElementById('userSettingsBtn'),
+        chatSettingsBtn: document.getElementById('chatSettingsBtn'),
+        selectionToolbar: document.getElementById('selectionToolbar'),
+        selectedCount: document.getElementById('selectedCount'),
+        deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
+        pinSelectedBtn: document.getElementById('pinSelectedBtn'),
+        cancelSelectionBtn: document.getElementById('cancelSelectionBtn'),
+        pinnedDock: document.getElementById('pinnedDock'),
+        pinnedMessagePreview: document.getElementById('pinnedMessagePreview'),
+        unpinBtn: document.getElementById('unpinBtn'),
+        deleteModal: document.getElementById('deleteModal'),
+        deleteModalClose: document.getElementById('deleteModalClose'),
+        deleteForMeBtn: document.getElementById('deleteForMeBtn'),
+        deleteForEveryoneBtn: document.getElementById('deleteForEveryoneBtn'),
+        userSettingsModal: document.getElementById('userSettingsModal'),
+        userSettingsClose: document.getElementById('userSettingsClose'),
+        renameContactBtn: document.getElementById('renameContactBtn'),
+        deleteContactBtn: document.getElementById('deleteContactBtn'),
+        blockUserBtn: document.getElementById('blockUserBtn'),
+        unblockUserBtn: document.getElementById('unblockUserBtn'),
+        pinContactBtn: document.getElementById('pinContactBtn'),
+        chatSettingsModal: document.getElementById('chatSettingsModal'),
+        chatSettingsClose: document.getElementById('chatSettingsClose'),
+        bgDefault: document.getElementById('bgDefault'),
+        bgCustom: document.getElementById('bgCustom'),
+        bgUpload: document.getElementById('bgUpload'),
+        createNoteBtn: document.getElementById('createNoteBtn'),
+        themeModal: document.getElementById('themeModal'),
+        themeModalClose: document.getElementById('themeModalClose'),
+        themeBtn: document.getElementById('themeBtn'),
+        primaryColor: document.getElementById('primaryColor'),
+        secondaryColor: document.getElementById('secondaryColor'),
+        textColor: document.getElementById('textColor'),
+        applyCustomTheme: document.getElementById('applyCustomTheme'),
+        clipBtn: document.getElementById('clipBtn'),
+        fileModal: document.getElementById('fileModal'),
+        fileModalClose: document.getElementById('fileModalClose'),
+        fileSelectBtn: document.getElementById('fileSelectBtn'),
+        fileInput: document.getElementById('fileInput'),
+        filePreviewImage: document.getElementById('filePreviewImage'),
+        filePreviewVideo: document.getElementById('filePreviewVideo'),
+        fileCaption: document.getElementById('fileCaption'),
+        fileSendBtn: document.getElementById('fileSendBtn')
     };
+
+    // ---------- NEW STATE VARIABLES ----------
+    let selectionMode = false;
+    let selectedMessages = new Set();
+    let pinnedMessages = {};
+    let contactCustomNames = {};
+    let blockedUsers = [];
+    let chatSettings = {
+        bubbleStyle: 'rounded',
+        background: 'default',
+        bgImage: null
+    };
+    let pendingFile = null;
+    let pendingFileType = null;
 
     // ---------- UTILITY FUNCTIONS ----------
     function formatTime(ts) {
@@ -107,6 +167,13 @@
     function formatDate(ts) {
         const d = new Date(ts);
         return d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function getAge(ts) {
+        const days = Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24));
+        if (days < 1) return 'Today';
+        if (days === 1) return '1 day';
+        return days + ' days';
     }
 
     function getUserTags(username) {
@@ -138,6 +205,12 @@
 
     function getChatKey(u1, u2) {
         return [u1, u2].sort().join('_');
+    }
+
+    function getDisplayName(username) {
+        if (contactCustomNames[username]) return contactCustomNames[username];
+        const user = getUserByUsername(username);
+        return user ? user.displayName || username : username;
     }
 
     // ---------- NOTIFICATIONS ----------
@@ -289,7 +362,6 @@
             }
             return true;
         } else {
-            // If fetch fails, just use cache
             setStatus('Offline mode', 'yellow');
             return true;
         }
@@ -387,17 +459,40 @@
         if (!state.currentUser || !DOM.chatList) return;
         const chats = state.localCache.chats;
         const messages = state.localCache.messages;
-        const chatKeys = Object.keys(chats).filter(k => k.includes(state.currentUser.username));
+        let chatKeys = Object.keys(chats).filter(k => k.includes(state.currentUser.username));
+
+        // Check blocked users
+        blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
+        chatKeys = chatKeys.filter(k => {
+            const parts = k.split('_');
+            const partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
+            return !blockedUsers.includes(partner);
+        });
+
+        // Get pinned contacts
+        const pinnedContacts = JSON.parse(localStorage.getItem('vvn_pinned_contacts') || '[]');
 
         let html = '';
         if (chatKeys.length === 0) {
             html = `<div class="empty-chats">No chats yet. Search for users above.</div>`;
         } else {
+            // Sort pinned contacts first
             const sorted = chatKeys.sort((a, b) => {
+                const partsA = a.split('_');
+                const partsB = b.split('_');
+                const partnerA = partsA[0] === state.currentUser.username ? partsA[1] : partsA[0];
+                const partnerB = partsB[0] === state.currentUser.username ? partsB[1] : partsB[0];
+                const isPinnedA = pinnedContacts.includes(partnerA);
+                const isPinnedB = pinnedContacts.includes(partnerB);
+                
+                if (isPinnedA && !isPinnedB) return -1;
+                if (!isPinnedA && isPinnedB) return 1;
+                
                 const ma = messages[a] || [];
                 const mb = messages[b] || [];
                 return (mb.length ? mb[mb.length-1].timestamp : 0) - (ma.length ? ma[ma.length-1].timestamp : 0);
             });
+            
             for (const key of sorted) {
                 const parts = key.split('_');
                 const partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
@@ -407,12 +502,14 @@
                 const time = last ? formatTime(last.timestamp) : '';
                 const pUser = getUserByUsername(partner);
                 const tags = getUserTags(partner);
-                const tagHtml = tags.map(t => `<span class="tag" style="background:${t.class.replace('tag-','')};color:#000;font-size:0.6rem;padding:0 6px;border-radius:4px;">${t.label}</span>`).join('');
+                const tagHtml = tags.map(t => `<span class="tag">${t.label}</span>`).join('');
+                const isPinned = pinnedContacts.includes(partner);
+                const displayName = getDisplayName(partner);
 
                 html += `<div class="chat-item ${partner === state.currentChatPartner ? 'active' : ''}" data-partner="${partner}">
                     <div class="avatar">${partner.charAt(0).toUpperCase()}</div>
                     <div class="chat-info">
-                        <div class="cname">${pUser?.displayName || partner} ${tagHtml}</div>
+                        <div class="cname">${displayName} ${tagHtml} ${isPinned ? '📌' : ''}</div>
                         <div class="preview">${preview}</div>
                     </div>
                     <div class="time">${time}</div>
@@ -431,6 +528,13 @@
     // ---------- OPEN CHAT ----------
     function openChat(partnerUsername) {
         if (!state.currentUser) return;
+        
+        // Check if blocked
+        if (blockedUsers.includes(partnerUsername)) {
+            alert('This user is blocked. Unblock them to chat.');
+            return;
+        }
+        
         state.currentChatPartner = partnerUsername;
         const partner = getUserByUsername(partnerUsername);
         if (!partner) return;
@@ -440,7 +544,8 @@
         if (DOM.chatHeader) DOM.chatHeader.style.display = 'flex';
         if (DOM.chatInputBar) DOM.chatInputBar.style.display = 'flex';
 
-        if (DOM.chatPartnerName) DOM.chatPartnerName.textContent = partner.displayName || partner.username;
+        const displayName = getDisplayName(partnerUsername);
+        if (DOM.chatPartnerName) DOM.chatPartnerName.textContent = displayName;
         if (DOM.chatPartnerStatus) DOM.chatPartnerStatus.textContent = partner.online ? 'Online' : 'Offline';
         if (DOM.chatAvatar) DOM.chatAvatar.textContent = partner.username.charAt(0).toUpperCase();
 
@@ -455,9 +560,33 @@
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
             pushToRemote();
         }
+        
+        // Check for pinned messages
+        const pinned = pinnedMessages[chatKey] || [];
+        if (pinned.length > 0) {
+            showPinnedDock(chatKey);
+        } else {
+            DOM.pinnedDock.style.display = 'none';
+        }
+        
+        // Check block status
+        if (DOM.blockUserBtn && DOM.unblockUserBtn) {
+            if (blockedUsers.includes(partnerUsername)) {
+                DOM.blockUserBtn.style.display = 'none';
+                DOM.unblockUserBtn.style.display = 'inline-flex';
+            } else {
+                DOM.blockUserBtn.style.display = 'inline-flex';
+                DOM.unblockUserBtn.style.display = 'none';
+            }
+        }
+        
+        // Apply chat background
+        applyChatBackground();
+        
         renderChatList();
         updateMobileView();
         scrollToBottom();
+        clearSelection();
     }
 
     function renderMessages(msgs) {
@@ -467,10 +596,35 @@
             DOM.chatMessages.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">No messages yet</div>';
             return;
         }
-        for (const msg of msgs) {
+        for (let i = 0; i < msgs.length; i++) {
+            const msg = msgs[i];
+            const msgId = `${msg.timestamp}-${i}`;
             const div = document.createElement('div');
-            div.className = `message ${msg.sender === state.currentUser.username ? 'outgoing' : 'incoming'}`;
-            div.innerHTML = `${msg.text} <div class="time">${formatTime(msg.timestamp)}</div>`;
+            const isOutgoing = msg.sender === state.currentUser.username;
+            div.className = `message ${isOutgoing ? 'outgoing' : 'incoming'} bubble-${chatSettings.bubbleStyle}`;
+            div.dataset.msgId = msgId;
+            
+            let content = '';
+            if (msg.file) {
+                content += `<div class="file-content">`;
+                if (msg.file.type === 'image') {
+                    content += `<img src="${msg.file.data}" alt="Image" />`;
+                } else if (msg.file.type === 'video') {
+                    content += `<video controls><source src="${msg.file.data}" /></video>`;
+                }
+                content += `</div>`;
+                if (msg.file.caption) {
+                    content += `<div class="file-caption">${msg.file.caption}</div>`;
+                }
+            } else {
+                content = msg.text;
+            }
+            
+            div.innerHTML = `
+                <div class="selection-circle"></div>
+                ${content}
+                <div class="time">${formatTime(msg.timestamp)}</div>
+            `;
             DOM.chatMessages.appendChild(div);
         }
         scrollToBottom();
@@ -499,7 +653,7 @@
         if (!state.currentUser || !state.currentChatPartner) return;
         if (!DOM.messageInput) return;
         const text = DOM.messageInput.value.trim();
-        if (!text) return;
+        if (!text && !pendingFile) return;
 
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages;
@@ -507,9 +661,25 @@
 
         const newMsg = {
             sender: state.currentUser.username,
-            text: text,
             timestamp: Date.now()
         };
+
+        if (pendingFile) {
+            newMsg.file = {
+                type: pendingFileType,
+                data: pendingFile,
+                caption: DOM.fileCaption ? DOM.fileCaption.value.trim() : ''
+            };
+            pendingFile = null;
+            pendingFileType = null;
+            DOM.fileModal.classList.remove('active');
+            if (DOM.fileCaption) DOM.fileCaption.value = '';
+            if (DOM.filePreviewImage) DOM.filePreviewImage.src = 'icons/image-placeholder.png';
+            if (DOM.filePreviewVideo) DOM.filePreviewVideo.style.display = 'none';
+        } else {
+            newMsg.text = text;
+        }
+
         messages[chatKey].push(newMsg);
         state.localCache.messages = messages;
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
@@ -524,7 +694,7 @@
 
         renderMessages(messages[chatKey]);
         renderChatList();
-        DOM.messageInput.value = '';
+        if (DOM.messageInput) DOM.messageInput.value = '';
         scrollToBottom();
     }
 
@@ -538,6 +708,7 @@
         const q = query.toLowerCase();
         const found = users.filter(u =>
             u.username !== state.currentUser.username &&
+            !blockedUsers.includes(u.username) &&
             (u.username.toLowerCase().includes(q) ||
              (u.displayName && u.displayName.toLowerCase().includes(q)))
         );
@@ -551,7 +722,7 @@
         let html = '';
         for (const u of found) {
             const tags = getUserTags(u.username);
-            const tagHtml = tags.map(t => `<span class="tag" style="background:${t.class.replace('tag-','')};color:#000;font-size:0.55rem;padding:0 4px;border-radius:3px;">${t.label}</span>`).join('');
+            const tagHtml = tags.map(t => `<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">${t.label}</span>`).join('');
             html += `<div class="search-result-item" data-username="${u.username}">
                 <div class="avatar">${u.username.charAt(0).toUpperCase()}</div>
                 <div class="info">
@@ -588,14 +759,19 @@
         if (DOM.profileUsername) DOM.profileUsername.textContent = '@' + user.username;
         if (DOM.profileBio) DOM.profileBio.textContent = user.bio || 'No bio yet';
         if (DOM.profileJoined) DOM.profileJoined.textContent = 'Joined: ' + formatDate(user.created || Date.now());
-        if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || 'icons/user.svg';
+        if (DOM.profileAge) DOM.profileAge.textContent = 'Age: ' + getAge(user.created || Date.now());
+        if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || 'icons/user.png';
+        if (DOM.profileUserID) DOM.profileUserID.textContent = 'ID: ' + user.username + '-' + (user.created || '').toString().slice(-6);
 
-        // If dev mode is enabled, show password
+        // Show password if dev mode enabled
         if (state.settings.devMode && CONFIG.DEV_PIN) {
             const pinCheck = prompt('Enter developer PIN to view password:');
-            if (pinCheck === CONFIG.DEV_PIN && DOM.profileBio) {
-                DOM.profileBio.textContent = 'Password: ' + user.password;
+            if (pinCheck === CONFIG.DEV_PIN && DOM.profilePassword) {
+                DOM.profilePassword.style.display = 'block';
+                DOM.profilePassword.textContent = 'Password: ' + user.password;
             }
+        } else if (DOM.profilePassword) {
+            DOM.profilePassword.style.display = 'none';
         }
 
         if (DOM.profileModal) DOM.profileModal.classList.add('active');
@@ -610,7 +786,7 @@
         if (DOM.settingsUsername) DOM.settingsUsername.value = user.username;
         if (DOM.settingsPassword) DOM.settingsPassword.value = '';
         if (DOM.settingsBio) DOM.settingsBio.value = user.bio || '';
-        if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.svg';
+        if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.png';
 
         // Load settings
         const savedSettings = localStorage.getItem('vvn_settings');
@@ -679,6 +855,419 @@
         }
     }
 
+    // ---------- SELECTION FUNCTIONS ----------
+    function toggleSelectionMode() {
+        selectionMode = !selectionMode;
+        if (selectionMode) {
+            if (DOM.selectBtn) DOM.selectBtn.classList.add('active');
+            document.querySelectorAll('.message').forEach(msg => {
+                msg.classList.add('selectable');
+            });
+            if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('active');
+        } else {
+            clearSelection();
+            if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
+            document.querySelectorAll('.message').forEach(msg => {
+                msg.classList.remove('selectable');
+            });
+            if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
+        }
+    }
+
+    function toggleMessageSelection(messageId) {
+        if (!selectionMode) return;
+        const msgElement = document.querySelector(`[data-msg-id="${messageId}"]`);
+        if (!msgElement) return;
+        
+        if (selectedMessages.has(messageId)) {
+            selectedMessages.delete(messageId);
+            msgElement.classList.remove('selected');
+        } else {
+            selectedMessages.add(messageId);
+            msgElement.classList.add('selected');
+        }
+        updateSelectedCount();
+    }
+
+    function clearSelection() {
+        selectedMessages.clear();
+        document.querySelectorAll('.message.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+        updateSelectedCount();
+        selectionMode = false;
+        if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
+        document.querySelectorAll('.message').forEach(msg => {
+            msg.classList.remove('selectable');
+        });
+        if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
+    }
+
+    function updateSelectedCount() {
+        if (DOM.selectedCount) {
+            DOM.selectedCount.textContent = selectedMessages.size + ' selected';
+        }
+    }
+
+    // ---------- DELETE FUNCTIONS ----------
+    function showDeleteModal() {
+        if (selectedMessages.size === 0) return;
+        if (DOM.deleteModal) DOM.deleteModal.classList.add('active');
+    }
+
+    function deleteMessages(forEveryone = false) {
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        
+        // Filter out selected messages
+        const remaining = messages.filter((msg, index) => {
+            const msgId = `${msg.timestamp}-${index}`;
+            return !selectedMessages.has(msgId);
+        });
+        
+        state.localCache.messages[chatKey] = remaining;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        
+        clearSelection();
+        if (DOM.deleteModal) DOM.deleteModal.classList.remove('active');
+        renderMessages(remaining);
+        renderChatList();
+    }
+
+    // ---------- PIN FUNCTIONS ----------
+    function pinSelectedMessages() {
+        if (selectedMessages.size === 0) return;
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        
+        // Get the first selected message
+        const firstSelected = Array.from(selectedMessages)[0];
+        const parts = firstSelected.split('-');
+        const timestamp = parseInt(parts[0]);
+        const index = parseInt(parts[1]);
+        
+        const msg = messages.find((m, i) => m.timestamp === timestamp && i === index);
+        if (msg) {
+            if (!pinnedMessages[chatKey]) pinnedMessages[chatKey] = [];
+            pinnedMessages[chatKey].push(msg);
+            showPinnedDock(chatKey);
+            localStorage.setItem('vvn_pinned', JSON.stringify(pinnedMessages));
+        }
+        clearSelection();
+    }
+
+    function showPinnedDock(chatKey) {
+        const pinned = pinnedMessages[chatKey] || [];
+        if (pinned.length === 0 || !DOM.pinnedDock) {
+            DOM.pinnedDock.style.display = 'none';
+            return;
+        }
+        DOM.pinnedDock.style.display = 'block';
+        const lastPinned = pinned[pinned.length - 1];
+        if (DOM.pinnedMessagePreview) {
+            DOM.pinnedMessagePreview.textContent = 
+                `${getDisplayName(lastPinned.sender)}: ${lastPinned.text || '📎 File'}`;
+        }
+    }
+
+    function unpinMessage(chatKey) {
+        if (pinnedMessages[chatKey]) {
+            pinnedMessages[chatKey].pop();
+            if (pinnedMessages[chatKey].length === 0) {
+                delete pinnedMessages[chatKey];
+                if (DOM.pinnedDock) DOM.pinnedDock.style.display = 'none';
+            } else {
+                showPinnedDock(chatKey);
+            }
+            localStorage.setItem('vvn_pinned', JSON.stringify(pinnedMessages));
+        }
+    }
+
+    function scrollToPinnedMessage() {
+        document.querySelectorAll('.message').forEach(el => {
+            el.classList.remove('highlight');
+        });
+        const firstMsg = document.querySelector('.message');
+        if (firstMsg) {
+            firstMsg.classList.add('highlight');
+            firstMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => {
+                firstMsg.classList.remove('highlight');
+            }, 2000);
+        }
+    }
+
+    // ---------- USER SETTINGS FUNCTIONS ----------
+    function openUserSettings() {
+        if (DOM.userSettingsModal) DOM.userSettingsModal.classList.add('active');
+    }
+
+    function renameContact() {
+        const newName = prompt('Enter new name for this contact:', 
+            contactCustomNames[state.currentChatPartner] || state.currentChatPartner);
+        if (newName && newName.trim()) {
+            contactCustomNames[state.currentChatPartner] = newName.trim();
+            localStorage.setItem('vvn_contact_names', JSON.stringify(contactCustomNames));
+            renderChatList();
+            if (DOM.chatPartnerName) {
+                DOM.chatPartnerName.textContent = newName.trim();
+            }
+        }
+    }
+
+    function deleteContact() {
+        if (confirm(`Delete contact ${state.currentChatPartner}? This will remove the chat from your list.`)) {
+            const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+            delete state.localCache.chats[chatKey];
+            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+            pushToRemote();
+            state.currentChatPartner = null;
+            showPlaceholder();
+            renderChatList();
+            if (DOM.userSettingsModal) DOM.userSettingsModal.classList.remove('active');
+        }
+    }
+
+    function blockUser() {
+        if (confirm(`Block ${state.currentChatPartner}? You won't receive messages from them.`)) {
+            if (!blockedUsers.includes(state.currentChatPartner)) {
+                blockedUsers.push(state.currentChatPartner);
+                localStorage.setItem('vvn_blocked', JSON.stringify(blockedUsers));
+                if (DOM.blockUserBtn) DOM.blockUserBtn.style.display = 'none';
+                if (DOM.unblockUserBtn) DOM.unblockUserBtn.style.display = 'inline-flex';
+            }
+        }
+    }
+
+    function unblockUser() {
+        const index = blockedUsers.indexOf(state.currentChatPartner);
+        if (index > -1) {
+            blockedUsers.splice(index, 1);
+            localStorage.setItem('vvn_blocked', JSON.stringify(blockedUsers));
+            if (DOM.blockUserBtn) DOM.blockUserBtn.style.display = 'inline-flex';
+            if (DOM.unblockUserBtn) DOM.unblockUserBtn.style.display = 'none';
+        }
+    }
+
+    function pinContact() {
+        const pinnedContacts = JSON.parse(localStorage.getItem('vvn_pinned_contacts') || '[]');
+        if (!pinnedContacts.includes(state.currentChatPartner)) {
+            pinnedContacts.unshift(state.currentChatPartner);
+            localStorage.setItem('vvn_pinned_contacts', JSON.stringify(pinnedContacts));
+            renderChatList();
+        }
+    }
+
+    // ---------- CHAT SETTINGS FUNCTIONS ----------
+    function openChatSettings() {
+        if (DOM.chatSettingsModal) DOM.chatSettingsModal.classList.add('active');
+    }
+
+    function changeBubbleStyle(style) {
+        chatSettings.bubbleStyle = style;
+        localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
+        document.querySelectorAll('.message').forEach(msg => {
+            msg.className = msg.className.replace(/bubble-\w+/g, '');
+            msg.classList.add('bubble-' + style);
+        });
+        document.querySelectorAll('.bubble-style').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.style === style) btn.classList.add('active');
+        });
+    }
+
+    function changeChatBackground(type) {
+        if (type === 'custom') {
+            if (DOM.bgUpload) DOM.bgUpload.click();
+        } else {
+            chatSettings.background = type;
+            chatSettings.bgImage = null;
+            if (DOM.chatMessages) {
+                DOM.chatMessages.style.background = '';
+                DOM.chatMessages.style.backgroundImage = '';
+            }
+            localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
+        }
+    }
+
+    function handleBackgroundUpload(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                chatSettings.background = 'custom';
+                chatSettings.bgImage = ev.target.result;
+                if (DOM.chatMessages) {
+                    DOM.chatMessages.style.backgroundImage = `url(${ev.target.result})`;
+                    DOM.chatMessages.style.backgroundSize = 'cover';
+                    DOM.chatMessages.style.backgroundPosition = 'center';
+                }
+                localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function applyChatBackground() {
+        if (chatSettings.background === 'custom' && chatSettings.bgImage && DOM.chatMessages) {
+            DOM.chatMessages.style.backgroundImage = `url(${chatSettings.bgImage})`;
+            DOM.chatMessages.style.backgroundSize = 'cover';
+            DOM.chatMessages.style.backgroundPosition = 'center';
+        } else if (DOM.chatMessages) {
+            DOM.chatMessages.style.background = '';
+            DOM.chatMessages.style.backgroundImage = '';
+        }
+    }
+
+    function createNote() {
+        const note = prompt('Enter your note:');
+        if (note && note.trim()) {
+            const notes = JSON.parse(localStorage.getItem('vvn_notes') || '[]');
+            notes.push({
+                id: Date.now(),
+                text: note.trim(),
+                created: Date.now()
+            });
+            localStorage.setItem('vvn_notes', JSON.stringify(notes));
+            alert('Note saved!');
+        }
+    }
+
+    // ---------- FILE ATTACHMENT ----------
+    function openFileModal() {
+        if (DOM.fileModal) DOM.fileModal.classList.add('active');
+        if (DOM.filePreviewImage) DOM.filePreviewImage.src = 'icons/image-placeholder.png';
+        if (DOM.filePreviewVideo) DOM.filePreviewVideo.style.display = 'none';
+        if (DOM.fileCaption) DOM.fileCaption.value = '';
+        pendingFile = null;
+        pendingFileType = null;
+    }
+
+    function handleFileSelect() {
+        if (DOM.fileInput) DOM.fileInput.click();
+    }
+
+    function handleFileInput(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            const data = ev.target.result;
+            if (file.type.startsWith('image/')) {
+                pendingFileType = 'image';
+                if (DOM.filePreviewImage) {
+                    DOM.filePreviewImage.src = data;
+                    DOM.filePreviewImage.style.display = 'block';
+                }
+                if (DOM.filePreviewVideo) DOM.filePreviewVideo.style.display = 'none';
+            } else if (file.type.startsWith('video/')) {
+                pendingFileType = 'video';
+                if (DOM.filePreviewVideo) {
+                    DOM.filePreviewVideo.src = data;
+                    DOM.filePreviewVideo.style.display = 'block';
+                }
+                if (DOM.filePreviewImage) DOM.filePreviewImage.style.display = 'none';
+            }
+            pendingFile = data;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // ---------- THEME FUNCTIONS ----------
+    function openThemeSettings() {
+        if (DOM.themeModal) DOM.themeModal.classList.add('active');
+        if (DOM.profileModal) DOM.profileModal.classList.remove('active');
+    }
+
+    function applyTheme(theme) {
+        document.querySelectorAll('.theme-option').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = document.querySelector(`.theme-option[data-theme="${theme}"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+        
+        if (theme === 'custom') {
+            if (document.getElementById('customThemeOptions')) {
+                document.getElementById('customThemeOptions').style.display = 'block';
+            }
+            return;
+        }
+        if (document.getElementById('customThemeOptions')) {
+            document.getElementById('customThemeOptions').style.display = 'none';
+        }
+        
+        const root = document.documentElement;
+        if (theme === 'dark') {
+            root.style.setProperty('--bg-primary', '#0a0a0a');
+            root.style.setProperty('--bg-secondary', '#141414');
+            root.style.setProperty('--bg-tertiary', '#1a1a1a');
+            root.style.setProperty('--bg-card', '#1e1e1e');
+            root.style.setProperty('--text-primary', '#f0f0f0');
+            root.style.setProperty('--text-secondary', '#999');
+            root.style.setProperty('--dark-purple', '#2d1b69');
+        } else if (theme === 'light') {
+            root.style.setProperty('--bg-primary', '#f5f5f5');
+            root.style.setProperty('--bg-secondary', '#ffffff');
+            root.style.setProperty('--bg-tertiary', '#f0f0f0');
+            root.style.setProperty('--bg-card', '#ffffff');
+            root.style.setProperty('--text-primary', '#1a1a1a');
+            root.style.setProperty('--text-secondary', '#666');
+            root.style.setProperty('--dark-purple', '#4a2b8a');
+        }
+        localStorage.setItem('vvn_theme', theme);
+    }
+
+    function applyCustomTheme() {
+        const primary = document.getElementById('primaryColor')?.value || '#2d1b69';
+        const secondary = document.getElementById('secondaryColor')?.value || '#141414';
+        const text = document.getElementById('textColor')?.value || '#f0f0f0';
+        
+        const root = document.documentElement;
+        root.style.setProperty('--dark-purple', primary);
+        root.style.setProperty('--bg-secondary', secondary);
+        root.style.setProperty('--text-primary', text);
+        
+        localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text }));
+    }
+
+    // ---------- LOAD SAVED SETTINGS ----------
+    function loadSavedSettings() {
+        // Load contact names
+        const names = localStorage.getItem('vvn_contact_names');
+        if (names) contactCustomNames = JSON.parse(names);
+        
+        // Load pinned messages
+        const pinned = localStorage.getItem('vvn_pinned');
+        if (pinned) pinnedMessages = JSON.parse(pinned);
+        
+        // Load chat settings
+        const settings = localStorage.getItem('vvn_chat_settings');
+        if (settings) chatSettings = JSON.parse(settings);
+        
+        // Load blocked users
+        const blocked = localStorage.getItem('vvn_blocked');
+        if (blocked) blockedUsers = JSON.parse(blocked);
+        
+        // Load theme
+        const theme = localStorage.getItem('vvn_theme');
+        if (theme) applyTheme(theme);
+        
+        // Load custom theme
+        const customTheme = localStorage.getItem('vvn_custom_theme');
+        if (customTheme) {
+            const ct = JSON.parse(customTheme);
+            if (document.getElementById('primaryColor')) {
+                document.getElementById('primaryColor').value = ct.primary;
+            }
+            if (document.getElementById('secondaryColor')) {
+                document.getElementById('secondaryColor').value = ct.secondary;
+            }
+            if (document.getElementById('textColor')) {
+                document.getElementById('textColor').value = ct.text;
+            }
+        }
+    }
+
     // ---------- MOBILE ----------
     function updateMobileView() {
         state.isMobile = window.innerWidth < 768;
@@ -706,6 +1295,9 @@
         }
         updateLoading(5);
 
+        // Load saved settings
+        loadSavedSettings();
+
         // Request notification permission
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
@@ -725,15 +1317,17 @@
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
             // Create default owner account
-            state.localCache.users.push({
-                username: 'vaultnet',
-                displayName: 'VaultNet',
-                password: 'admin123',
-                bio: 'Creator of VVN',
-                online: true,
-                created: Date.now(),
-                avatar: ''
-            });
+            if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
+                state.localCache.users.push({
+                    username: 'vaultnet',
+                    displayName: 'VaultNet',
+                    password: 'admin123',
+                    bio: 'Creator of VVN',
+                    online: true,
+                    created: Date.now(),
+                    avatar: ''
+                });
+            }
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         }
 
@@ -1014,6 +1608,142 @@
             DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
         }
 
+        // ---------- NEW EVENT LISTENERS ----------
+        // Selection
+        if (DOM.selectBtn) {
+            DOM.selectBtn.addEventListener('click', toggleSelectionMode);
+        }
+
+        // Message click for selection
+        document.addEventListener('click', function(e) {
+            const msgEl = e.target.closest('.message');
+            if (msgEl && selectionMode) {
+                const msgId = msgEl.dataset.msgId;
+                if (msgId) toggleMessageSelection(msgId);
+            }
+        });
+
+        // Selection toolbar buttons
+        if (DOM.deleteSelectedBtn) {
+            DOM.deleteSelectedBtn.addEventListener('click', showDeleteModal);
+        }
+        if (DOM.pinSelectedBtn) {
+            DOM.pinSelectedBtn.addEventListener('click', pinSelectedMessages);
+        }
+        if (DOM.cancelSelectionBtn) {
+            DOM.cancelSelectionBtn.addEventListener('click', clearSelection);
+        }
+
+        // Delete modal
+        if (DOM.deleteForMeBtn) {
+            DOM.deleteForMeBtn.addEventListener('click', () => deleteMessages(false));
+        }
+        if (DOM.deleteForEveryoneBtn) {
+            DOM.deleteForEveryoneBtn.addEventListener('click', () => deleteMessages(true));
+        }
+        if (DOM.deleteModalClose) {
+            DOM.deleteModalClose.addEventListener('click', () => DOM.deleteModal.classList.remove('active'));
+        }
+
+        // Pinned dock
+        if (DOM.unpinBtn) {
+            DOM.unpinBtn.addEventListener('click', () => {
+                const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
+                if (chatKey) unpinMessage(chatKey);
+            });
+        }
+        if (DOM.pinnedMessagePreview) {
+            DOM.pinnedMessagePreview.addEventListener('click', scrollToPinnedMessage);
+        }
+
+        // User settings
+        if (DOM.userSettingsBtn) {
+            DOM.userSettingsBtn.addEventListener('click', openUserSettings);
+        }
+        if (DOM.userSettingsClose) {
+            DOM.userSettingsClose.addEventListener('click', () => DOM.userSettingsModal.classList.remove('active'));
+        }
+        if (DOM.renameContactBtn) {
+            DOM.renameContactBtn.addEventListener('click', renameContact);
+        }
+        if (DOM.deleteContactBtn) {
+            DOM.deleteContactBtn.addEventListener('click', deleteContact);
+        }
+        if (DOM.blockUserBtn) {
+            DOM.blockUserBtn.addEventListener('click', blockUser);
+        }
+        if (DOM.unblockUserBtn) {
+            DOM.unblockUserBtn.addEventListener('click', unblockUser);
+        }
+        if (DOM.pinContactBtn) {
+            DOM.pinContactBtn.addEventListener('click', pinContact);
+        }
+
+        // Chat settings
+        if (DOM.chatSettingsBtn) {
+            DOM.chatSettingsBtn.addEventListener('click', openChatSettings);
+        }
+        if (DOM.chatSettingsClose) {
+            DOM.chatSettingsClose.addEventListener('click', () => DOM.chatSettingsModal.classList.remove('active'));
+        }
+        document.querySelectorAll('.bubble-style').forEach(btn => {
+            btn.addEventListener('click', function() {
+                changeBubbleStyle(this.dataset.style);
+            });
+        });
+        if (DOM.bgDefault) {
+            DOM.bgDefault.addEventListener('click', () => changeChatBackground('default'));
+        }
+        if (DOM.bgCustom) {
+            DOM.bgCustom.addEventListener('click', () => changeChatBackground('custom'));
+        }
+        if (DOM.bgUpload) {
+            DOM.bgUpload.addEventListener('change', handleBackgroundUpload);
+        }
+        if (DOM.createNoteBtn) {
+            DOM.createNoteBtn.addEventListener('click', createNote);
+        }
+
+        // Theme
+        if (DOM.themeBtn) {
+            DOM.themeBtn.addEventListener('click', openThemeSettings);
+        }
+        if (DOM.themeModalClose) {
+            DOM.themeModalClose.addEventListener('click', () => DOM.themeModal.classList.remove('active'));
+        }
+        document.querySelectorAll('.theme-option').forEach(btn => {
+            btn.addEventListener('click', function() {
+                applyTheme(this.dataset.theme);
+            });
+        });
+        if (DOM.applyCustomTheme) {
+            DOM.applyCustomTheme.addEventListener('click', applyCustomTheme);
+        }
+
+        // File attachment
+        if (DOM.clipBtn) {
+            DOM.clipBtn.addEventListener('click', openFileModal);
+        }
+        if (DOM.fileModalClose) {
+            DOM.fileModalClose.addEventListener('click', () => DOM.fileModal.classList.remove('active'));
+        }
+        if (DOM.fileSelectBtn) {
+            DOM.fileSelectBtn.addEventListener('click', handleFileSelect);
+        }
+        if (DOM.fileInput) {
+            DOM.fileInput.addEventListener('change', handleFileInput);
+        }
+        if (DOM.fileSendBtn) {
+            DOM.fileSendBtn.addEventListener('click', sendMessage);
+        }
+
+        // Close modals on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function() {
+                this.parentElement.classList.remove('active');
+            });
+        });
+
         // Resize
         window.addEventListener('resize', updateMobileView);
 
@@ -1025,5 +1755,5 @@
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
-    });
-})();
+    }
+})(
