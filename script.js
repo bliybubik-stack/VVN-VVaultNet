@@ -14,9 +14,13 @@
             e2ee: true,
             twofa: false,
             privacy: false,
-            devMode: false
+            devMode: false,
+            lastSeen: true,
+            readReceipts: true,
+            typingIndicators: true
         },
-        loadingComplete: false
+        loadingComplete: false,
+        currentTheme: 'dark'
     };
 
     // Get CONFIG from window
@@ -91,13 +95,18 @@
         twofaToggle: document.getElementById('twofaToggle'),
         privacyToggle: document.getElementById('privacyToggle'),
         devToggle: document.getElementById('devToggle'),
+        lastSeenToggle: document.getElementById('lastSeenToggle'),
+        readReceiptsToggle: document.getElementById('readReceiptsToggle'),
+        typingIndicatorsToggle: document.getElementById('typingIndicatorsToggle'),
         e2eeStatus: document.getElementById('e2eeStatus'),
         twofaStatus: document.getElementById('twofaStatus'),
         privacyStatus: document.getElementById('privacyStatus'),
         devStatus: document.getElementById('devStatus'),
+        lastSeenStatus: document.getElementById('lastSeenStatus'),
+        readReceiptsStatus: document.getElementById('readReceiptsStatus'),
+        typingIndicatorsStatus: document.getElementById('typingIndicatorsStatus'),
         chatAvatar: document.getElementById('chatAvatar'),
         chatHeaderInfo: document.getElementById('chatHeaderInfo'),
-        // New elements
         selectBtn: document.getElementById('selectBtn'),
         userSettingsBtn: document.getElementById('userSettingsBtn'),
         chatSettingsBtn: document.getElementById('chatSettingsBtn'),
@@ -126,13 +135,6 @@
         bgCustom: document.getElementById('bgCustom'),
         bgUpload: document.getElementById('bgUpload'),
         createNoteBtn: document.getElementById('createNoteBtn'),
-        themeModal: document.getElementById('themeModal'),
-        themeModalClose: document.getElementById('themeModalClose'),
-        themeBtn: document.getElementById('themeBtn'),
-        primaryColor: document.getElementById('primaryColor'),
-        secondaryColor: document.getElementById('secondaryColor'),
-        textColor: document.getElementById('textColor'),
-        applyCustomTheme: document.getElementById('applyCustomTheme'),
         clipBtn: document.getElementById('clipBtn'),
         fileModal: document.getElementById('fileModal'),
         fileModalClose: document.getElementById('fileModalClose'),
@@ -141,7 +143,14 @@
         filePreviewImage: document.getElementById('filePreviewImage'),
         filePreviewVideo: document.getElementById('filePreviewVideo'),
         fileCaption: document.getElementById('fileCaption'),
-        fileSendBtn: document.getElementById('fileSendBtn')
+        fileSendBtn: document.getElementById('fileSendBtn'),
+        themeModal: document.getElementById('themeModal'),
+        themeModalClose: document.getElementById('themeModalClose'),
+        themeBtn: document.getElementById('themeBtn'),
+        primaryColor: document.getElementById('primaryColor'),
+        secondaryColor: document.getElementById('secondaryColor'),
+        textColor: document.getElementById('textColor'),
+        applyCustomTheme: document.getElementById('applyCustomTheme')
     };
 
     // ---------- NEW STATE VARIABLES ----------
@@ -157,6 +166,85 @@
     };
     let pendingFile = null;
     let pendingFileType = null;
+
+    // ---------- THEME CONFIGURATIONS ----------
+    const THEMES = {
+        dark: {
+            name: 'Dark',
+            desc: 'Classic dark theme for night use',
+            vars: {
+                '--bg-primary': '#0a0a0a',
+                '--bg-secondary': '#141414',
+                '--bg-tertiary': '#1a1a1a',
+                '--bg-card': '#1e1e1e',
+                '--text-primary': '#f0f0f0',
+                '--text-secondary': '#999',
+                '--dark-purple': '#2d1b69',
+                '--message-outgoing': '#2d1b69',
+                '--message-incoming': '#1a1a1a'
+            }
+        },
+        light: {
+            name: 'Light',
+            desc: 'Clean light theme for daytime use',
+            vars: {
+                '--bg-primary': '#f5f5f5',
+                '--bg-secondary': '#ffffff',
+                '--bg-tertiary': '#f0f0f0',
+                '--bg-card': '#ffffff',
+                '--text-primary': '#1a1a1a',
+                '--text-secondary': '#666',
+                '--dark-purple': '#4a2b8a',
+                '--message-outgoing': '#4a2b8a',
+                '--message-incoming': '#e8e8e8'
+            }
+        },
+        ocean: {
+            name: 'Ocean',
+            desc: 'Deep blue ocean vibes',
+            vars: {
+                '--bg-primary': '#0a1628',
+                '--bg-secondary': '#0f1f3a',
+                '--bg-tertiary': '#142a4a',
+                '--bg-card': '#1a3555',
+                '--text-primary': '#d0e8ff',
+                '--text-secondary': '#8ab4d6',
+                '--dark-purple': '#1a4a6b',
+                '--message-outgoing': '#1a4a6b',
+                '--message-incoming': '#0f2a45'
+            }
+        },
+        forest: {
+            name: 'Forest',
+            desc: 'Natural green forest theme',
+            vars: {
+                '--bg-primary': '#0a1a0a',
+                '--bg-secondary': '#0f2a0f',
+                '--bg-tertiary': '#143a14',
+                '--bg-card': '#1a4a1a',
+                '--text-primary': '#d0ffd0',
+                '--text-secondary': '#8ab48a',
+                '--dark-purple': '#1a4a2a',
+                '--message-outgoing': '#1a4a2a',
+                '--message-incoming': '#0f2a15'
+            }
+        },
+        sunset: {
+            name: 'Sunset',
+            desc: 'Warm sunset colors',
+            vars: {
+                '--bg-primary': '#1a0a1a',
+                '--bg-secondary': '#2a102a',
+                '--bg-tertiary': '#3a1a3a',
+                '--bg-card': '#4a2a4a',
+                '--text-primary': '#ffd0d0',
+                '--text-secondary': '#d68a8a',
+                '--dark-purple': '#6b2a4a',
+                '--message-outgoing': '#6b2a4a',
+                '--message-incoming': '#3a1a2a'
+            }
+        }
+    };
 
     // ---------- UTILITY FUNCTIONS ----------
     function formatTime(ts) {
@@ -314,7 +402,6 @@
             const remoteChats = remote.chats || {};
             const remoteMessages = remote.messages || {};
 
-            // Check for new messages
             const localMessages = state.localCache.messages || {};
             let hasNewMessages = false;
 
@@ -329,7 +416,7 @@
                             hasNewMessages = true;
                             const partner = key.split('_').find(u => u !== state.currentUser?.username);
                             if (partner && state.currentUser) {
-                                sendNotification(partner, msg.text, formatTime(msg.timestamp));
+                                sendNotification(partner, msg.text || '📎 File', formatTime(msg.timestamp));
                             }
                         }
                     }
@@ -337,7 +424,6 @@
                 }
             }
 
-            // Merge users
             const localUsers = state.localCache.users || [];
             const mergedUsers = [...localUsers];
             for (const rUser of remoteUsers) {
@@ -372,6 +458,55 @@
         const success = await updateBin(state.localCache);
         if (success) setStatus('Pushed to cloud', 'green');
         return success;
+    }
+
+    // ---------- THEME FUNCTIONS ----------
+    function applyTheme(themeName) {
+        state.currentTheme = themeName;
+        const theme = THEMES[themeName];
+        if (!theme) return;
+
+        const root = document.documentElement;
+        for (const [key, value] of Object.entries(theme.vars)) {
+            root.style.setProperty(key, value);
+        }
+
+        // Update theme options UI
+        document.querySelectorAll('.theme-option').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.theme === themeName);
+        });
+
+        localStorage.setItem('vvn_theme', themeName);
+        
+        // Update preview in settings if visible
+        if (DOM.settingsModal && DOM.settingsModal.classList.contains('active')) {
+            updateThemePreview(themeName);
+        }
+    }
+
+    function updateThemePreview(themeName) {
+        const previews = document.querySelectorAll('.theme-preview');
+        previews.forEach(el => {
+            el.className = 'theme-preview';
+            if (el.dataset.theme === themeName) {
+                el.classList.add(themeName);
+            }
+        });
+    }
+
+    function applyCustomTheme() {
+        const primary = document.getElementById('primaryColor')?.value || '#2d1b69';
+        const secondary = document.getElementById('secondaryColor')?.value || '#141414';
+        const text = document.getElementById('textColor')?.value || '#f0f0f0';
+        
+        const root = document.documentElement;
+        root.style.setProperty('--dark-purple', primary);
+        root.style.setProperty('--bg-secondary', secondary);
+        root.style.setProperty('--text-primary', text);
+        root.style.setProperty('--message-outgoing', primary);
+        
+        localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text }));
+        state.currentTheme = 'custom';
     }
 
     // ---------- AUTH ----------
@@ -461,7 +596,6 @@
         const messages = state.localCache.messages;
         let chatKeys = Object.keys(chats).filter(k => k.includes(state.currentUser.username));
 
-        // Check blocked users
         blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
         chatKeys = chatKeys.filter(k => {
             const parts = k.split('_');
@@ -469,14 +603,12 @@
             return !blockedUsers.includes(partner);
         });
 
-        // Get pinned contacts
         const pinnedContacts = JSON.parse(localStorage.getItem('vvn_pinned_contacts') || '[]');
 
         let html = '';
         if (chatKeys.length === 0) {
             html = `<div class="empty-chats">No chats yet. Search for users above.</div>`;
         } else {
-            // Sort pinned contacts first
             const sorted = chatKeys.sort((a, b) => {
                 const partsA = a.split('_');
                 const partsB = b.split('_');
@@ -498,7 +630,7 @@
                 const partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
                 const msgs = messages[key] || [];
                 const last = msgs.length ? msgs[msgs.length-1] : null;
-                const preview = last ? last.text : 'Start chatting';
+                const preview = last ? (last.text || '📎 File') : 'Start chatting';
                 const time = last ? formatTime(last.timestamp) : '';
                 const pUser = getUserByUsername(partner);
                 const tags = getUserTags(partner);
@@ -529,7 +661,6 @@
     function openChat(partnerUsername) {
         if (!state.currentUser) return;
         
-        // Check if blocked
         if (blockedUsers.includes(partnerUsername)) {
             alert('This user is blocked. Unblock them to chat.');
             return;
@@ -561,7 +692,6 @@
             pushToRemote();
         }
         
-        // Check for pinned messages
         const pinned = pinnedMessages[chatKey] || [];
         if (pinned.length > 0) {
             showPinnedDock(chatKey);
@@ -569,7 +699,6 @@
             DOM.pinnedDock.style.display = 'none';
         }
         
-        // Check block status
         if (DOM.blockUserBtn && DOM.unblockUserBtn) {
             if (blockedUsers.includes(partnerUsername)) {
                 DOM.blockUserBtn.style.display = 'none';
@@ -580,9 +709,7 @@
             }
         }
         
-        // Apply chat background
         applyChatBackground();
-        
         renderChatList();
         updateMobileView();
         scrollToBottom();
@@ -617,7 +744,7 @@
                     content += `<div class="file-caption">${msg.file.caption}</div>`;
                 }
             } else {
-                content = msg.text;
+                content = msg.text || '';
             }
             
             div.innerHTML = `
@@ -763,7 +890,6 @@
         if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || 'icons/user.png';
         if (DOM.profileUserID) DOM.profileUserID.textContent = 'ID: ' + user.username + '-' + (user.created || '').toString().slice(-6);
 
-        // Show password if dev mode enabled
         if (state.settings.devMode && CONFIG.DEV_PIN) {
             const pinCheck = prompt('Enter developer PIN to view password:');
             if (pinCheck === CONFIG.DEV_PIN && DOM.profilePassword) {
@@ -788,7 +914,6 @@
         if (DOM.settingsBio) DOM.settingsBio.value = user.bio || '';
         if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.png';
 
-        // Load settings
         const savedSettings = localStorage.getItem('vvn_settings');
         if (savedSettings) {
             state.settings = JSON.parse(savedSettings);
@@ -798,11 +923,20 @@
         if (DOM.twofaToggle) DOM.twofaToggle.checked = state.settings.twofa;
         if (DOM.privacyToggle) DOM.privacyToggle.checked = state.settings.privacy;
         if (DOM.devToggle) DOM.devToggle.checked = state.settings.devMode;
+        if (DOM.lastSeenToggle) DOM.lastSeenToggle.checked = state.settings.lastSeen !== undefined ? state.settings.lastSeen : true;
+        if (DOM.readReceiptsToggle) DOM.readReceiptsToggle.checked = state.settings.readReceipts !== undefined ? state.settings.readReceipts : true;
+        if (DOM.typingIndicatorsToggle) DOM.typingIndicatorsToggle.checked = state.settings.typingIndicators !== undefined ? state.settings.typingIndicators : true;
 
         if (DOM.e2eeStatus) DOM.e2eeStatus.textContent = state.settings.e2ee ? 'Enabled' : 'Disabled';
         if (DOM.twofaStatus) DOM.twofaStatus.textContent = state.settings.twofa ? 'Enabled' : 'Disabled';
         if (DOM.privacyStatus) DOM.privacyStatus.textContent = state.settings.privacy ? 'Enabled' : 'Disabled';
         if (DOM.devStatus) DOM.devStatus.textContent = state.settings.devMode ? 'Enabled' : 'Disabled';
+        if (DOM.lastSeenStatus) DOM.lastSeenStatus.textContent = state.settings.lastSeen !== undefined ? (state.settings.lastSeen ? 'Enabled' : 'Disabled') : 'Enabled';
+        if (DOM.readReceiptsStatus) DOM.readReceiptsStatus.textContent = state.settings.readReceipts !== undefined ? (state.settings.readReceipts ? 'Enabled' : 'Disabled') : 'Enabled';
+        if (DOM.typingIndicatorsStatus) DOM.typingIndicatorsStatus.textContent = state.settings.typingIndicators !== undefined ? (state.settings.typingIndicators ? 'Enabled' : 'Disabled') : 'Enabled';
+
+        // Update theme preview
+        updateThemePreview(state.currentTheme);
 
         if (DOM.settingsModal) DOM.settingsModal.classList.add('active');
     }
@@ -816,7 +950,6 @@
         const password = DOM.settingsPassword ? DOM.settingsPassword.value.trim() : '';
         const bio = DOM.settingsBio ? DOM.settingsBio.value.trim() : '';
 
-        // Check if username is taken
         if (username !== user.username) {
             const existing = state.localCache.users.find(u => u.username === username && u.username !== user.username);
             if (existing) {
@@ -825,7 +958,6 @@
             }
         }
 
-        // Update user
         const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
         if (userIndex !== -1) {
             state.localCache.users[userIndex] = {
@@ -919,7 +1051,6 @@
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages[chatKey] || [];
         
-        // Filter out selected messages
         const remaining = messages.filter((msg, index) => {
             const msgId = `${msg.timestamp}-${index}`;
             return !selectedMessages.has(msgId);
@@ -941,7 +1072,6 @@
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages[chatKey] || [];
         
-        // Get the first selected message
         const firstSelected = Array.from(selectedMessages)[0];
         const parts = firstSelected.split('-');
         const timestamp = parseInt(parts[0]);
@@ -1175,84 +1305,29 @@
         reader.readAsDataURL(file);
     }
 
-    // ---------- THEME FUNCTIONS ----------
-    function openThemeSettings() {
-        if (DOM.themeModal) DOM.themeModal.classList.add('active');
-        if (DOM.profileModal) DOM.profileModal.classList.remove('active');
-    }
-
-    function applyTheme(theme) {
-        document.querySelectorAll('.theme-option').forEach(btn => btn.classList.remove('active'));
-        const activeBtn = document.querySelector(`.theme-option[data-theme="${theme}"]`);
-        if (activeBtn) activeBtn.classList.add('active');
-        
-        if (theme === 'custom') {
-            if (document.getElementById('customThemeOptions')) {
-                document.getElementById('customThemeOptions').style.display = 'block';
-            }
-            return;
-        }
-        if (document.getElementById('customThemeOptions')) {
-            document.getElementById('customThemeOptions').style.display = 'none';
-        }
-        
-        const root = document.documentElement;
-        if (theme === 'dark') {
-            root.style.setProperty('--bg-primary', '#0a0a0a');
-            root.style.setProperty('--bg-secondary', '#141414');
-            root.style.setProperty('--bg-tertiary', '#1a1a1a');
-            root.style.setProperty('--bg-card', '#1e1e1e');
-            root.style.setProperty('--text-primary', '#f0f0f0');
-            root.style.setProperty('--text-secondary', '#999');
-            root.style.setProperty('--dark-purple', '#2d1b69');
-        } else if (theme === 'light') {
-            root.style.setProperty('--bg-primary', '#f5f5f5');
-            root.style.setProperty('--bg-secondary', '#ffffff');
-            root.style.setProperty('--bg-tertiary', '#f0f0f0');
-            root.style.setProperty('--bg-card', '#ffffff');
-            root.style.setProperty('--text-primary', '#1a1a1a');
-            root.style.setProperty('--text-secondary', '#666');
-            root.style.setProperty('--dark-purple', '#4a2b8a');
-        }
-        localStorage.setItem('vvn_theme', theme);
-    }
-
-    function applyCustomTheme() {
-        const primary = document.getElementById('primaryColor')?.value || '#2d1b69';
-        const secondary = document.getElementById('secondaryColor')?.value || '#141414';
-        const text = document.getElementById('textColor')?.value || '#f0f0f0';
-        
-        const root = document.documentElement;
-        root.style.setProperty('--dark-purple', primary);
-        root.style.setProperty('--bg-secondary', secondary);
-        root.style.setProperty('--text-primary', text);
-        
-        localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text }));
-    }
-
     // ---------- LOAD SAVED SETTINGS ----------
     function loadSavedSettings() {
-        // Load contact names
         const names = localStorage.getItem('vvn_contact_names');
         if (names) contactCustomNames = JSON.parse(names);
         
-        // Load pinned messages
         const pinned = localStorage.getItem('vvn_pinned');
         if (pinned) pinnedMessages = JSON.parse(pinned);
         
-        // Load chat settings
         const settings = localStorage.getItem('vvn_chat_settings');
         if (settings) chatSettings = JSON.parse(settings);
         
-        // Load blocked users
         const blocked = localStorage.getItem('vvn_blocked');
         if (blocked) blockedUsers = JSON.parse(blocked);
         
-        // Load theme
         const theme = localStorage.getItem('vvn_theme');
-        if (theme) applyTheme(theme);
+        if (theme && THEMES[theme]) {
+            state.currentTheme = theme;
+            applyTheme(theme);
+        } else {
+            state.currentTheme = 'dark';
+            applyTheme('dark');
+        }
         
-        // Load custom theme
         const customTheme = localStorage.getItem('vvn_custom_theme');
         if (customTheme) {
             const ct = JSON.parse(customTheme);
@@ -1295,15 +1370,12 @@
         }
         updateLoading(5);
 
-        // Load saved settings
         loadSavedSettings();
 
-        // Request notification permission
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
 
-        // Try to load from localStorage cache first
         const cached = localStorage.getItem('vvn_cache');
         if (cached) {
             try {
@@ -1316,7 +1388,6 @@
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
-            // Create default owner account
             if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
                 state.localCache.users.push({
                     username: 'vaultnet',
@@ -1333,7 +1404,6 @@
 
         updateLoading(50);
 
-        // Try to sync with JSONBin in background
         try {
             const remote = await fetchFromBin();
             if (remote) {
@@ -1342,7 +1412,6 @@
                     chats: remote.chats || {},
                     messages: remote.messages || {}
                 };
-                // Ensure default owner exists
                 if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
                     state.localCache.users.push({
                         username: 'vaultnet',
@@ -1363,19 +1432,17 @@
 
         updateLoading(80);
 
-        // Load settings
         const savedSettings = localStorage.getItem('vvn_settings');
         if (savedSettings) {
             try {
                 state.settings = JSON.parse(savedSettings);
             } catch (e) {
-                state.settings = { e2ee: true, twofa: false, privacy: false, devMode: false };
+                state.settings = { e2ee: true, twofa: false, privacy: false, devMode: false, lastSeen: true, readReceipts: true, typingIndicators: true };
             }
         }
 
         updateLoading(90);
 
-        // Check session
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
             const user = state.localCache.users.find(u => u.username === session.username);
@@ -1383,7 +1450,6 @@
                 state.currentUser = user;
                 renderMessenger();
 
-                // Start auto-sync
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
 
@@ -1567,6 +1633,30 @@
             });
         }
 
+        if (DOM.lastSeenToggle) {
+            DOM.lastSeenToggle.addEventListener('change', function() {
+                state.settings.lastSeen = this.checked;
+                if (DOM.lastSeenStatus) DOM.lastSeenStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
+        if (DOM.readReceiptsToggle) {
+            DOM.readReceiptsToggle.addEventListener('change', function() {
+                state.settings.readReceipts = this.checked;
+                if (DOM.readReceiptsStatus) DOM.readReceiptsStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
+        if (DOM.typingIndicatorsToggle) {
+            DOM.typingIndicatorsToggle.addEventListener('change', function() {
+                state.settings.typingIndicators = this.checked;
+                if (DOM.typingIndicatorsStatus) DOM.typingIndicatorsStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+            });
+        }
+
         // Avatar upload
         if (DOM.avatarUpload) {
             DOM.avatarUpload.addEventListener('change', function(e) {
@@ -1608,13 +1698,11 @@
             DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
         }
 
-        // ---------- NEW EVENT LISTENERS ----------
         // Selection
         if (DOM.selectBtn) {
             DOM.selectBtn.addEventListener('click', toggleSelectionMode);
         }
 
-        // Message click for selection
         document.addEventListener('click', function(e) {
             const msgEl = e.target.closest('.message');
             if (msgEl && selectionMode) {
@@ -1623,7 +1711,6 @@
             }
         });
 
-        // Selection toolbar buttons
         if (DOM.deleteSelectedBtn) {
             DOM.deleteSelectedBtn.addEventListener('click', showDeleteModal);
         }
@@ -1634,7 +1721,6 @@
             DOM.cancelSelectionBtn.addEventListener('click', clearSelection);
         }
 
-        // Delete modal
         if (DOM.deleteForMeBtn) {
             DOM.deleteForMeBtn.addEventListener('click', () => deleteMessages(false));
         }
@@ -1645,7 +1731,6 @@
             DOM.deleteModalClose.addEventListener('click', () => DOM.deleteModal.classList.remove('active'));
         }
 
-        // Pinned dock
         if (DOM.unpinBtn) {
             DOM.unpinBtn.addEventListener('click', () => {
                 const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
@@ -1656,7 +1741,6 @@
             DOM.pinnedMessagePreview.addEventListener('click', scrollToPinnedMessage);
         }
 
-        // User settings
         if (DOM.userSettingsBtn) {
             DOM.userSettingsBtn.addEventListener('click', openUserSettings);
         }
@@ -1679,7 +1763,6 @@
             DOM.pinContactBtn.addEventListener('click', pinContact);
         }
 
-        // Chat settings
         if (DOM.chatSettingsBtn) {
             DOM.chatSettingsBtn.addEventListener('click', openChatSettings);
         }
@@ -1704,18 +1787,19 @@
             DOM.createNoteBtn.addEventListener('click', createNote);
         }
 
-        // Theme
-        if (DOM.themeBtn) {
-            DOM.themeBtn.addEventListener('click', openThemeSettings);
-        }
-        if (DOM.themeModalClose) {
-            DOM.themeModalClose.addEventListener('click', () => DOM.themeModal.classList.remove('active'));
-        }
+        // Theme settings (now in main settings)
         document.querySelectorAll('.theme-option').forEach(btn => {
             btn.addEventListener('click', function() {
-                applyTheme(this.dataset.theme);
+                const themeName = this.dataset.theme;
+                if (themeName === 'custom') {
+                    document.getElementById('customThemeOptions').style.display = 'block';
+                    return;
+                }
+                document.getElementById('customThemeOptions').style.display = 'none';
+                applyTheme(themeName);
             });
         });
+
         if (DOM.applyCustomTheme) {
             DOM.applyCustomTheme.addEventListener('click', applyCustomTheme);
         }
@@ -1755,5 +1839,6 @@
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
-    }
-})(
+        console.log('🎨 Themes available:', Object.keys(THEMES).join(', '));
+    });
+})();
