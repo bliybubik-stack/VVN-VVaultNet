@@ -2,48 +2,81 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
     <title>VVN Messenger</title>
     <link rel="stylesheet" href="style.css" />
-    <style>
-        /* Safe area padding for mobile devices */
-        @supports (padding: max(0px)) {
-            #app {
-                padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
-            }
-            .chat-input-bar {
-                padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
-            }
-        }
-    </style>
+    <link rel="icon" href="icons/logo.png" type="image/png" />
 </head>
 <body>
     <div id="app">
+
         <!-- Loading Overlay -->
         <div id="loadingOverlay">
             <div class="loader-container">
                 <div class="loader-icon">
-                    <img src="icons/shield.png" alt="VVN" width="72" height="72" />
+                    <img src="icons/shield.png" alt="VVN" width="64" height="64" />
                 </div>
                 <div class="loader-bar"><div class="fill" id="loaderFill"></div></div>
-                <p>SECURE CONNECTION ESTABLISHING...</p>
+                <p>LOADING...</p>
+            </div>
+        </div>
+
+        <!-- Device Selection Screen -->
+        <div id="deviceScreen">
+            <div class="device-container">
+                <div class="brand">
+                    <div class="logo">
+                        <img src="icons/logo.png" alt="VVN" width="48" height="48" />
+                    </div>
+                    <h1>VVN</h1>
+                    <p>VEIL-VAULT-NET</p>
+                </div>
+                <div class="device-box">
+                    <h2>Select Your Device</h2>
+                    <p class="sub">Choose your device type for optimal layout</p>
+                    <div class="device-grid">
+                        <button class="device-option" data-device="phone">
+                            <img src="icons/phone.png" alt="Phone" />
+                            <span class="label">Phone</span>
+                            <span class="desc">Mobile optimized</span>
+                        </button>
+                        <button class="device-option" data-device="tablet">
+                            <img src="icons/tablet.png" alt="Tablet" />
+                            <span class="label">Tablet</span>
+                            <span class="desc">Tablet optimized</span>
+                        </button>
+                        <button class="device-option" data-device="pc">
+                            <img src="icons/pc.png" alt="PC" />
+                            <span class="label">PC / Desktop</span>
+                            <span class="desc">Full desktop layout</span>
+                        </button>
+                    </div>
+                    <div class="device-auto">
+                        <button id="autoDetectBtn">Auto Detect</button>
+                        <span class="or">or let us detect your device</span>
+                    </div>
+                </div>
+                <div style="text-align:center;margin-top:16px;color:var(--text-muted);font-size:0.7rem;letter-spacing:1px;">
+                    END-TO-END ENCRYPTED
+                </div>
             </div>
         </div>
 
         <!-- Auth Screen -->
-        <div id="authScreen">
+        <div id="authScreen" style="display:none;">
             <div class="auth-container">
                 <div class="auth-brand">
-                    <img src="icons/logo.png" alt="VVN" width="80" height="80" class="rounded-logo" />
+                    <img src="icons/logo.png" alt="VVN" width="72" height="72" class="rounded-logo" />
                     <h1>VVN</h1>
                     <p>VEIL-VAULT-NET</p>
                 </div>
-                <div class="auth-box" id="authBox">
+                <div class="auth-box">
                     <div class="auth-tabs">
                         <button class="auth-tab active" data-tab="login">Sign in</button>
                         <button class="auth-tab" data-tab="register">Create account</button>
                     </div>
                     
+                    <!-- Login Form -->
                     <form id="loginForm" class="auth-form active">
                         <div class="input-group">
                             <img src="icons/user.png" alt="" class="input-icon" />
@@ -57,6 +90,7 @@
                         <div id="authError" class="auth-error"></div>
                     </form>
 
+                    <!-- Register Form -->
                     <form id="registerForm" class="auth-form">
                         <div class="input-group">
                             <img src="icons/user.png" alt="" class="input-icon" />
@@ -81,73 +115,113 @@
         </div>
 
         <!-- Messenger -->
-        <div id="messenger">
-            <div id="statusBar">
-                <span><span class="status-dot" id="syncDot"></span><span id="syncStatus">Initializing...</span></span>
+        <div id="messenger" style="display:none;">
+            <!-- Status Bar -->
+            <div id="statusBar" style="display:none;">
+                <span>
+                    <span class="sync-dot"></span>
+                    <span class="sync-text" id="syncStatus">Initializing...</span>
+                </span>
                 <button class="sync-btn" id="manualSyncBtn">
                     <img src="icons/settings.png" alt="Sync" width="14" height="14" />
                     Sync
                 </button>
             </div>
 
-            <div class="messenger-layout">
+            <div class="messenger-layout" id="messengerLayout" style="display:none;">
+                <!-- Sidebar -->
                 <div class="sidebar" id="sidebar">
                     <div class="sidebar-header">
-                        <div class="logo-bar">
+                        <div class="logo-area">
                             <div class="logo-container">
-                                <img src="icons/logo.png" alt="VVN" width="32" height="32" class="rounded-logo-small" />
+                                <img src="icons/logo.png" alt="VVN" width="28" height="28" />
                                 <h2>VVN</h2>
                             </div>
                             <button class="settings-btn" id="settingsBtn">
-                                <img src="icons/settings.png" alt="Settings" width="24" height="24" />
+                                <img src="icons/settings.png" alt="Settings" width="20" height="20" />
                             </button>
                         </div>
                         <div class="user-badge" id="userBadge">
-                            <img src="icons/user.png" alt="" width="20" height="20" />
+                            <div class="avatar"><img src="icons/user.png" alt="U" /></div>
                             <span id="sidebarUsername">user</span>
+                            <span style="margin-left:auto;font-size:0.6rem;color:var(--text-muted);">● Online</span>
                         </div>
                         <div class="search-wrap">
-                            <input id="searchInput" placeholder="Search users..." />
                             <img src="icons/search.png" alt="" class="search-icon" />
+                            <input id="searchInput" placeholder="Search users..." />
                             <div id="searchResults" class="search-results"></div>
                         </div>
                     </div>
                     <div class="chat-list" id="chatList"></div>
                 </div>
 
+                <!-- Chat Area -->
                 <div class="chat-area" id="chatArea">
+                    <!-- Background pattern -->
+                    <div class="chat-bg-pattern pattern-grid"></div>
+
+                    <!-- Chat Placeholder -->
                     <div id="chatPlaceholder" class="chat-placeholder">
                         <div class="placeholder-content">
-                            <img src="icons/shield.png" alt="VVN" width="80" height="80" />
+                            <img src="icons/shield.png" alt="VVN" width="72" height="72" />
                             <h3>Your chats will appear here</h3>
                             <p>Search a user above to start a private chat.</p>
                         </div>
                     </div>
+
+                    <!-- Active Chat -->
                     <div id="chatActive" style="display:none; flex-direction:column; height:100%;">
-                        <div class="chat-header" id="chatHeader">
+                        <!-- Chat Header -->
+                        <div class="chat-header" id="chatHeader" style="display:none;">
                             <button class="back-btn" id="backBtn">
-                                <img src="icons/back.png" alt="Back" width="24" height="24" />
+                                <img src="icons/back.png" alt="Back" />
                             </button>
                             <div class="chat-header-info" id="chatHeaderInfo">
-                                <div class="avatar" id="chatAvatar">👤</div>
+                                <div class="avatar" id="chatAvatar">
+                                    <img src="icons/user.png" alt="U" />
+                                </div>
                                 <div>
-                                    <div class="chatuser" id="chatPartnerName"></div>
+                                    <div class="chatuser" id="chatPartnerName">User</div>
                                     <div class="status" id="chatPartnerStatus">offline</div>
                                 </div>
                             </div>
                             <div class="chat-header-actions">
-                                <button class="header-action-btn" id="selectBtn" title="Select messages">
-                                    <img src="icons/select.png" alt="Select" width="22" height="22" />
-                                </button>
-                                <button class="header-action-btn" id="userSettingsBtn" title="User settings">
-                                    <img src="icons/user-settings.png" alt="User settings" width="22" height="22" />
-                                </button>
-                                <button class="header-action-btn" id="chatSettingsBtn" title="Chat settings">
-                                    <img src="icons/chat-settings.png" alt="Chat settings" width="22" height="22" />
+                                <button class="header-action-btn" id="chatDropdownBtn">
+                                    <img src="icons/settings.png" alt="Menu" />
                                 </button>
                             </div>
                         </div>
 
+                        <!-- Dropdown Menu -->
+                        <div class="dropdown-menu" id="dropdownMenu" style="display:none;">
+                            <div class="dropdown-item" data-action="select">
+                                <img src="icons/select.png" alt="Select" />
+                                <span>Select Messages</span>
+                            </div>
+                            <div class="dropdown-item" data-action="user-settings">
+                                <img src="icons/user-settings.png" alt="User" />
+                                <span>User Settings</span>
+                            </div>
+                            <div class="dropdown-item" data-action="chat-settings">
+                                <img src="icons/chat-settings.png" alt="Chat" />
+                                <span>Chat Settings</span>
+                            </div>
+                            <div class="dropdown-item" data-action="profile">
+                                <img src="icons/user.png" alt="Profile" />
+                                <span>View Profile</span>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-item" data-action="device">
+                                <img src="icons/settings.png" alt="Device" />
+                                <span>Change Device Layout</span>
+                            </div>
+                            <div class="dropdown-item" data-action="logout" style="color:#ff6b6b;">
+                                <img src="icons/close.png" alt="Logout" style="opacity:0.6;" />
+                                <span>Logout</span>
+                            </div>
+                        </div>
+
+                        <!-- Pinned Messages Dock -->
                         <div id="pinnedDock" style="display:none;">
                             <div class="pinned-content">
                                 <img src="icons/pin.png" alt="Pinned" width="16" height="16" />
@@ -157,41 +231,48 @@
                             <div id="pinnedMessagePreview"></div>
                         </div>
 
+                        <!-- Messages -->
                         <div class="chat-messages" id="chatMessages"></div>
 
+                        <!-- Selection Toolbar -->
                         <div id="selectionToolbar" style="display:none;">
                             <span id="selectedCount">0 selected</span>
                             <button class="toolbar-btn" id="deleteSelectedBtn" title="Delete">
-                                <img src="icons/delete.png" alt="Delete" width="20" height="20" />
+                                <img src="icons/delete.png" alt="Delete" />
                             </button>
                             <button class="toolbar-btn" id="pinSelectedBtn" title="Pin">
-                                <img src="icons/pin.png" alt="Pin" width="20" height="20" />
+                                <img src="icons/pin.png" alt="Pin" />
                             </button>
                             <button class="toolbar-btn" id="cancelSelectionBtn" title="Cancel">
-                                <img src="icons/close.png" alt="Cancel" width="20" height="20" />
+                                <img src="icons/close.png" alt="Cancel" />
                             </button>
                         </div>
 
-                        <div class="chat-input-bar" id="chatInputBar">
-                            <button class="clip-btn" id="clipBtn" title="Attach files">
-                                <img src="icons/clip.png" alt="Attach" width="28" height="28" />
-                            </button>
-                            <input id="messageInput" placeholder="Type a message..." />
-                            <button id="sendBtn">
-                                <img src="icons/send.png" alt="Send" width="28" height="28" />
-                            </button>
+                        <!-- Chat Input -->
+                        <div class="chat-input-wrapper">
+                            <div class="chat-input-island">
+                                <button class="clip-btn" id="clipBtn">
+                                    <img src="icons/clip.png" alt="Attach" />
+                                </button>
+                                <input id="messageInput" placeholder="Type a message..." />
+                                <button class="send-btn" id="sendBtn">
+                                    <img src="icons/send.png" alt="Send" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- ========== MODALS ========== -->
+
         <!-- Delete Modal -->
         <div id="deleteModal" class="modal">
             <div class="modal-overlay"></div>
-            <div class="modal-content delete-modal glass-card">
+            <div class="modal-content delete-modal">
                 <button class="modal-close" id="deleteModalClose">
-                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                    <img src="icons/close.png" alt="Close" />
                 </button>
                 <h3>Delete Messages</h3>
                 <p>Choose how to delete the selected messages:</p>
@@ -205,9 +286,9 @@
         <!-- User Settings Modal -->
         <div id="userSettingsModal" class="modal">
             <div class="modal-overlay"></div>
-            <div class="modal-content settings-modal glass-card">
+            <div class="modal-content settings-modal">
                 <button class="modal-close" id="userSettingsClose">
-                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                    <img src="icons/close.png" alt="Close" />
                 </button>
                 <h2>User Settings</h2>
                 <div class="settings-group">
@@ -236,9 +317,9 @@
         <!-- Chat Settings Modal -->
         <div id="chatSettingsModal" class="modal">
             <div class="modal-overlay"></div>
-            <div class="modal-content settings-modal glass-card">
+            <div class="modal-content settings-modal">
                 <button class="modal-close" id="chatSettingsClose">
-                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                    <img src="icons/close.png" alt="Close" />
                 </button>
                 <h2>Chat Settings</h2>
                 <div class="settings-group">
@@ -271,9 +352,9 @@
         <!-- Settings Modal -->
         <div id="settingsModal" class="modal">
             <div class="modal-overlay"></div>
-            <div class="modal-content settings-modal glass-card">
+            <div class="modal-content settings-modal">
                 <button class="modal-close" id="settingsClose">
-                    <img src="icons/close.png" alt="Close" width="28" height="28" />
+                    <img src="icons/close.png" alt="Close" />
                 </button>
                 <h2>Settings</h2>
                 <div class="settings-tabs">
@@ -282,6 +363,7 @@
                     <button class="settings-tab" data-tab="themes">Themes</button>
                 </div>
                 
+                <!-- Profile Settings -->
                 <div class="settings-panel active" id="profileSettings">
                     <div class="settings-group">
                         <label>Profile Picture</label>
@@ -310,6 +392,7 @@
                     <button class="btn-primary" id="saveSettings">Save Changes</button>
                 </div>
 
+                <!-- Security Settings -->
                 <div class="settings-panel" id="securitySettings">
                     <div class="settings-group">
                         <label>End-to-End Encryption</label>
@@ -376,13 +459,9 @@
                         </select>
                         <p class="setting-desc">Choose how messages are delivered and encrypted.</p>
                     </div>
-                    <div class="settings-group">
-                        <label>Session Management</label>
-                        <button class="btn-secondary" id="sessionsBtn">View Active Sessions</button>
-                        <p class="setting-desc">Manage devices where you're logged in.</p>
-                    </div>
                 </div>
 
+                <!-- Themes Settings -->
                 <div class="settings-panel" id="themesSettings">
                     <div class="settings-group">
                         <label>App Theme</label>
@@ -440,36 +519,12 @@
             </div>
         </div>
 
-        <!-- File Attachment Modal -->
-        <div id="fileModal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content file-modal glass-card">
-                <button class="modal-close" id="fileModalClose">
-                    <img src="icons/close.png" alt="Close" width="28" height="28" />
-                </button>
-                <h3>Attach Files</h3>
-                <div class="file-preview" id="filePreview">
-                    <div id="filePreviewContainer"></div>
-                </div>
-                <div class="file-input-group">
-                    <button class="btn-secondary" id="fileSelectBtn">Select Files</button>
-                    <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display:none;" />
-                    <button class="btn-secondary" id="fileClearBtn" style="display:none;">Clear All</button>
-                </div>
-                <div class="settings-group">
-                    <label>Caption (Optional)</label>
-                    <input type="text" id="fileCaption" placeholder="Add a title or description..." />
-                </div>
-                <button class="btn-primary" id="fileSendBtn">Send All</button>
-            </div>
-        </div>
-
         <!-- Profile Modal -->
         <div id="profileModal" class="modal">
             <div class="modal-overlay"></div>
-            <div class="modal-content profile-modal glass-card">
+            <div class="modal-content profile-modal">
                 <button class="modal-close" id="modalClose">
-                    <img src="icons/close.png" alt="Close" width="28" height="28" />
+                    <img src="icons/close.png" alt="Close" />
                 </button>
                 <div class="profile-card" id="profileCard">
                     <div class="profile-header">
@@ -499,6 +554,33 @@
                 </div>
             </div>
         </div>
+
+        <!-- File Attachment Modal -->
+        <div id="fileModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content file-modal">
+                <button class="modal-close" id="fileModalClose">
+                    <img src="icons/close.png" alt="Close" />
+                </button>
+                <h3>Attach Files</h3>
+                <div class="file-preview" id="filePreview">
+                    <div id="filePreviewContainer"></div>
+                </div>
+                <div class="file-input-group">
+                    <button class="btn-secondary" id="fileSelectBtn">Select Files</button>
+                    <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display:none;" />
+                    <button class="btn-secondary" id="fileClearBtn" style="display:none;">Clear All</button>
+                </div>
+                <div class="settings-group">
+                    <label>Caption (Optional)</label>
+                    <input type="text" id="fileCaption" placeholder="Add a title or description..." />
+                </div>
+                <button class="btn-primary" id="fileSendBtn">Send All</button>
+            </div>
+        </div>
+
+        <!-- Device Indicator (bottom right) -->
+        <div class="device-indicator" id="deviceIndicator" style="display:none;">🖥️ PC</div>
     </div>
 
     <script src="config.js"></script>
