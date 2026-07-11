@@ -31,7 +31,7 @@
 body {
     background: var(--matte-black);
     color: var(--text-primary);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     height: 100vh;
     overflow: hidden;
     display: flex;
@@ -1878,4 +1878,4 @@ body {
     .chat-input-island .send-btn img { width: 28px; height: 28px; }
     .chat-input-island .clip-btn { width: 60px; height: 60px; padding: 14px; }
     .chat-input-island .clip-btn img { width: 28px; height: 28px; }
-                    }
+    }
