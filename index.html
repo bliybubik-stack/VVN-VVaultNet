@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+    <title>VVN Messenger</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <div class="loader-container">
+                <div class="loader-icon">
+                    <svg viewBox="0 0 24 24" width="48" height="48">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="none" stroke="#6c63ff" stroke-width="2"/>
+                        <path d="M12 6v6l4 2" stroke="#6c63ff" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="loader-bar"><div class="fill" id="loaderFill"></div></div>
+                <p>LOADING...</p>
+            </div>
+        </div>
+
+        <!-- Auth Screen -->
+        <div id="authScreen">
+            <div class="auth-container">
+                <div class="auth-brand">
+                    <img src="icons/logo.svg" alt="VVN" width="48" height="48" />
+                    <h1>VVN</h1>
+                    <p>VAULTNET MESSENGER</p>
+                </div>
+                <div class="auth-box" id="authBox">
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" data-tab="login">Sign in</button>
+                        <button class="auth-tab" data-tab="register">Create account</button>
+                    </div>
+                    
+                    <!-- Login Form -->
+                    <form id="loginForm" class="auth-form active">
+                        <div class="input-group">
+                            <img src="icons/user.svg" alt="" class="input-icon" />
+                            <input type="text" id="loginUsername" placeholder="USERNAME" />
+                        </div>
+                        <div class="input-group">
+                            <img src="icons/lock.svg" alt="" class="input-icon" />
+                            <input type="password" id="loginPassword" placeholder="PASSWORD" />
+                        </div>
+                        <button type="submit" class="btn-primary">Enter VVN</button>
+                        <div id="authError" class="auth-error"></div>
+                    </form>
+
+                    <!-- Register Form -->
+                    <form id="registerForm" class="auth-form">
+                        <div class="input-group">
+                            <img src="icons/user.svg" alt="" class="input-icon" />
+                            <input type="text" id="regUsername" placeholder="USERNAME" />
+                        </div>
+                        <div class="input-group">
+                            <img src="icons/edit.svg" alt="" class="input-icon" />
+                            <input type="text" id="regDisplayName" placeholder="DISPLAY NAME (OPTIONAL)" />
+                        </div>
+                        <div class="input-group">
+                            <img src="icons/lock.svg" alt="" class="input-icon" />
+                            <input type="password" id="regPassword" placeholder="PASSWORD" />
+                        </div>
+                        <button type="submit" class="btn-primary">Create account</button>
+                        <div id="regError" class="auth-error"></div>
+                    </form>
+                </div>
+                <div class="auth-footer">
+                    <span>PRIVATE BY DESIGN</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messenger -->
+        <div id="messenger">
+            <!-- Status Bar -->
+            <div id="statusBar">
+                <span><span class="status-dot" id="syncDot"></span><span id="syncStatus">Initializing...</span></span>
+                <button class="sync-btn" id="manualSyncBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" fill="currentColor"/></svg>
+                    Sync
+                </button>
+            </div>
+
+            <div class="messenger-layout">
+                <!-- Sidebar -->
+                <div class="sidebar" id="sidebar">
+                    <div class="sidebar-header">
+                        <div class="logo-bar">
+                            <div class="logo-container">
+                                <img src="icons/logo.svg" alt="VVN" width="28" height="28" />
+                                <h2>VVN</h2>
+                            </div>
+                            <button class="settings-btn" id="settingsBtn">
+                                <img src="icons/settings.svg" alt="Settings" width="20" height="20" />
+                            </button>
+                        </div>
+                        <div class="user-badge" id="userBadge">
+                            <img src="icons/user.svg" alt="" width="16" height="16" />
+                            <span id="sidebarUsername">user</span>
+                        </div>
+                        <div class="search-wrap">
+                            <input id="searchInput" placeholder="Search users..." />
+                            <img src="icons/search.svg" alt="" class="search-icon" />
+                            <div id="searchResults" class="search-results"></div>
+                        </div>
+                    </div>
+                    <div class="chat-list" id="chatList"></div>
+                </div>
+
+                <!-- Chat Area -->
+                <div class="chat-area" id="chatArea">
+                    <div id="chatPlaceholder" class="chat-placeholder">
+                        <div class="placeholder-content">
+                            <img src="icons/logo.svg" alt="VVN" width="64" height="64" />
+                            <h3>Your chats will appear here</h3>
+                            <p>Search a user above to start a private chat.</p>
+                        </div>
+                    </div>
+                    <div id="chatActive" style="display:none; flex-direction:column; height:100%;">
+                        <div class="chat-header" id="chatHeader">
+                            <button class="back-btn" id="backBtn">
+                                <img src="icons/back.svg" alt="Back" width="20" height="20" />
+                            </button>
+                            <div class="chat-header-info" id="chatHeaderInfo">
+                                <div class="avatar" id="chatAvatar">👤</div>
+                                <div>
+                                    <div class="chatuser" id="chatPartnerName"></div>
+                                    <div class="status" id="chatPartnerStatus">offline</div>
+                                </div>
+                            </div>
+                            <button class="profile-btn" id="profileBtn">
+                                <img src="icons/user.svg" alt="Profile" width="20" height="20" />
+                            </button>
+                        </div>
+                        <div class="chat-messages" id="chatMessages"></div>
+                        <div class="chat-input-bar" id="chatInputBar">
+                            <input id="messageInput" placeholder="Type a message..." />
+                            <button id="sendBtn">
+                                <img src="icons/send.svg" alt="Send" width="20" height="20" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Modal -->
+        <div id="profileModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <button class="modal-close" id="modalClose">
+                    <img src="icons/close.svg" alt="Close" width="24" height="24" />
+                </button>
+                <div class="profile-card" id="profileCard">
+                    <div class="profile-avatar">
+                        <img id="profileAvatar" src="icons/user.svg" alt="" />
+                        <div class="profile-tags" id="profileTags"></div>
+                    </div>
+                    <div class="profile-name" id="profileDisplayName">Display Name</div>
+                    <div class="profile-username" id="profileUsername">@username</div>
+                    <div class="profile-bio" id="profileBio">No bio yet</div>
+                    <div class="profile-joined" id="profileJoined">Joined: Today</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content settings-modal">
+                <button class="modal-close" id="settingsClose">
+                    <img src="icons/close.svg" alt="Close" width="24" height="24" />
+                </button>
+                <h2>Settings</h2>
+                <div class="settings-tabs">
+                    <button class="settings-tab active" data-tab="profile">Profile</button>
+                    <button class="settings-tab" data-tab="security">Security</button>
+                </div>
+                
+                <!-- Profile Settings -->
+                <div class="settings-panel active" id="profileSettings">
+                    <div class="settings-group">
+                        <label>Profile Picture</label>
+                        <div class="avatar-upload">
+                            <img id="settingsAvatar" src="icons/user.svg" alt="" />
+                            <input type="file" id="avatarUpload" accept="image/*" />
+                            <button class="btn-secondary" onclick="document.getElementById('avatarUpload').click()">Change</button>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label>Display Name</label>
+                        <input type="text" id="settingsDisplayName" placeholder="How friends see you" />
+                    </div>
+                    <div class="settings-group">
+                        <label>Username</label>
+                        <input type="text" id="settingsUsername" placeholder="Your unique handle" />
+                    </div>
+                    <div class="settings-group">
+                        <label>Password</label>
+                        <input type="password" id="settingsPassword" placeholder="New password" />
+                    </div>
+                    <div class="settings-group">
+                        <label>Bio</label>
+                        <textarea id="settingsBio" placeholder="Tell us about yourself" rows="3"></textarea>
+                    </div>
+                    <button class="btn-primary" id="saveSettings">Save Changes</button>
+                </div>
+
+                <!-- Security Settings -->
+                <div class="settings-panel" id="securitySettings">
+                    <div class="settings-group">
+                        <label>End-to-End Encryption</label>
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="e2eeToggle" checked />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="e2eeStatus">Enabled</span>
+                        </div>
+                        <p class="setting-desc">Messages are encrypted and can only be read by you and the recipient.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Two-Factor Authentication</label>
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="twofaToggle" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="twofaStatus">Disabled</span>
+                        </div>
+                        <p class="setting-desc">Add an extra layer of security to your account.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Session Management</label>
+                        <button class="btn-secondary" id="sessionsBtn">View Active Sessions</button>
+                        <p class="setting-desc">Manage devices where you're logged in.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Privacy Mode</label>
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="privacyToggle" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="privacyStatus">Disabled</span>
+                        </div>
+                        <p class="setting-desc">Hide your online status and read receipts.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Developer Mode</label>
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="devToggle" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="devStatus">Disabled</span>
+                        </div>
+                        <p class="setting-desc">Enable developer features and debug tools.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+  </html>
