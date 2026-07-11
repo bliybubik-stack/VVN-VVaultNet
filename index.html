@@ -12,10 +12,7 @@
         <div id="loadingOverlay">
             <div class="loader-container">
                 <div class="loader-icon">
-                    <svg viewBox="0 0 24 24" width="48" height="48">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="none" stroke="#6c63ff" stroke-width="2"/>
-                        <path d="M12 6v6l4 2" stroke="#6c63ff" stroke-width="2"/>
-                    </svg>
+                    <img src="icons/logo.png" alt="VVN" width="48" height="48" />
                 </div>
                 <div class="loader-bar"><div class="fill" id="loaderFill"></div></div>
                 <p>LOADING...</p>
@@ -26,9 +23,9 @@
         <div id="authScreen">
             <div class="auth-container">
                 <div class="auth-brand">
-                    <img src="icons/logo.svg" alt="VVN" width="48" height="48" />
+                    <img src="icons/logo.png" alt="VVN" width="64" height="64" />
                     <h1>VVN</h1>
-                    <p>VAULTNET MESSENGER</p>
+                    <p>VEIL-VAULT-NET</p>
                 </div>
                 <div class="auth-box" id="authBox">
                     <div class="auth-tabs">
@@ -39,11 +36,11 @@
                     <!-- Login Form -->
                     <form id="loginForm" class="auth-form active">
                         <div class="input-group">
-                            <img src="icons/user.svg" alt="" class="input-icon" />
+                            <img src="icons/user.png" alt="" class="input-icon" />
                             <input type="text" id="loginUsername" placeholder="USERNAME" />
                         </div>
                         <div class="input-group">
-                            <img src="icons/lock.svg" alt="" class="input-icon" />
+                            <img src="icons/lock.png" alt="" class="input-icon" />
                             <input type="password" id="loginPassword" placeholder="PASSWORD" />
                         </div>
                         <button type="submit" class="btn-primary">Enter VVN</button>
@@ -53,15 +50,15 @@
                     <!-- Register Form -->
                     <form id="registerForm" class="auth-form">
                         <div class="input-group">
-                            <img src="icons/user.svg" alt="" class="input-icon" />
+                            <img src="icons/user.png" alt="" class="input-icon" />
                             <input type="text" id="regUsername" placeholder="USERNAME" />
                         </div>
                         <div class="input-group">
-                            <img src="icons/edit.svg" alt="" class="input-icon" />
+                            <img src="icons/edit.png" alt="" class="input-icon" />
                             <input type="text" id="regDisplayName" placeholder="DISPLAY NAME (OPTIONAL)" />
                         </div>
                         <div class="input-group">
-                            <img src="icons/lock.svg" alt="" class="input-icon" />
+                            <img src="icons/lock.png" alt="" class="input-icon" />
                             <input type="password" id="regPassword" placeholder="PASSWORD" />
                         </div>
                         <button type="submit" class="btn-primary">Create account</button>
@@ -80,7 +77,7 @@
             <div id="statusBar">
                 <span><span class="status-dot" id="syncDot"></span><span id="syncStatus">Initializing...</span></span>
                 <button class="sync-btn" id="manualSyncBtn">
-                    <svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" fill="currentColor"/></svg>
+                    <img src="icons/settings.png" alt="Sync" width="14" height="14" />
                     Sync
                 </button>
             </div>
@@ -91,20 +88,20 @@
                     <div class="sidebar-header">
                         <div class="logo-bar">
                             <div class="logo-container">
-                                <img src="icons/logo.svg" alt="VVN" width="28" height="28" />
+                                <img src="icons/logo.png" alt="VVN" width="28" height="28" />
                                 <h2>VVN</h2>
                             </div>
                             <button class="settings-btn" id="settingsBtn">
-                                <img src="icons/settings.svg" alt="Settings" width="20" height="20" />
+                                <img src="icons/settings.png" alt="Settings" width="20" height="20" />
                             </button>
                         </div>
                         <div class="user-badge" id="userBadge">
-                            <img src="icons/user.svg" alt="" width="16" height="16" />
+                            <img src="icons/user.png" alt="" width="16" height="16" />
                             <span id="sidebarUsername">user</span>
                         </div>
                         <div class="search-wrap">
                             <input id="searchInput" placeholder="Search users..." />
-                            <img src="icons/search.svg" alt="" class="search-icon" />
+                            <img src="icons/search.png" alt="" class="search-icon" />
                             <div id="searchResults" class="search-results"></div>
                         </div>
                     </div>
@@ -115,7 +112,7 @@
                 <div class="chat-area" id="chatArea">
                     <div id="chatPlaceholder" class="chat-placeholder">
                         <div class="placeholder-content">
-                            <img src="icons/logo.svg" alt="VVN" width="64" height="64" />
+                            <img src="icons/logo.png" alt="VVN" width="64" height="64" />
                             <h3>Your chats will appear here</h3>
                             <p>Search a user above to start a private chat.</p>
                         </div>
@@ -123,7 +120,7 @@
                     <div id="chatActive" style="display:none; flex-direction:column; height:100%;">
                         <div class="chat-header" id="chatHeader">
                             <button class="back-btn" id="backBtn">
-                                <img src="icons/back.svg" alt="Back" width="20" height="20" />
+                                <img src="icons/back.png" alt="Back" width="20" height="20" />
                             </button>
                             <div class="chat-header-info" id="chatHeaderInfo">
                                 <div class="avatar" id="chatAvatar">👤</div>
@@ -133,14 +130,17 @@
                                 </div>
                             </div>
                             <button class="profile-btn" id="profileBtn">
-                                <img src="icons/user.svg" alt="Profile" width="20" height="20" />
+                                <img src="icons/user.png" alt="Profile" width="20" height="20" />
                             </button>
                         </div>
                         <div class="chat-messages" id="chatMessages"></div>
                         <div class="chat-input-bar" id="chatInputBar">
+                            <button class="clip-btn" id="clipBtn">
+                                <img src="icons/clip.png" alt="Attach" width="24" height="24" />
+                            </button>
                             <input id="messageInput" placeholder="Type a message..." />
                             <button id="sendBtn">
-                                <img src="icons/send.svg" alt="Send" width="20" height="20" />
+                                <img src="icons/send.png" alt="Send" width="24" height="24" />
                             </button>
                         </div>
                     </div>
@@ -151,19 +151,35 @@
         <!-- Profile Modal -->
         <div id="profileModal" class="modal">
             <div class="modal-overlay"></div>
-            <div class="modal-content">
+            <div class="modal-content profile-modal">
                 <button class="modal-close" id="modalClose">
-                    <img src="icons/close.svg" alt="Close" width="24" height="24" />
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
                 </button>
                 <div class="profile-card" id="profileCard">
-                    <div class="profile-avatar">
-                        <img id="profileAvatar" src="icons/user.svg" alt="" />
-                        <div class="profile-tags" id="profileTags"></div>
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <img id="profileAvatar" src="icons/user.png" alt="" />
+                        </div>
+                        <div class="profile-name-container">
+                            <div class="profile-name" id="profileDisplayName">Display Name</div>
+                            <div class="profile-tags" id="profileTags"></div>
+                        </div>
                     </div>
-                    <div class="profile-name" id="profileDisplayName">Display Name</div>
-                    <div class="profile-username" id="profileUsername">@username</div>
-                    <div class="profile-bio" id="profileBio">No bio yet</div>
-                    <div class="profile-joined" id="profileJoined">Joined: Today</div>
+                    <div class="profile-section">
+                        <div class="profile-label">Info</div>
+                        <div class="profile-username" id="profileUsername">@username</div>
+                        <div class="profile-password" id="profilePassword" style="display:none;">Password: ********</div>
+                        <div class="profile-userid" id="profileUserID">ID: loading...</div>
+                    </div>
+                    <div class="profile-section">
+                        <div class="profile-label">About</div>
+                        <div class="profile-bio" id="profileBio">No bio yet</div>
+                        <div class="profile-joined" id="profileJoined">Joined: Today</div>
+                        <div class="profile-age" id="profileAge">Age: 0 days</div>
+                    </div>
+                    <div class="profile-footer">
+                        <div class="dev-note">- VVN. VEIL-VAULT-NET.<br>Your security matters.</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -173,7 +189,7 @@
             <div class="modal-overlay"></div>
             <div class="modal-content settings-modal">
                 <button class="modal-close" id="settingsClose">
-                    <img src="icons/close.svg" alt="Close" width="24" height="24" />
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
                 </button>
                 <h2>Settings</h2>
                 <div class="settings-tabs">
@@ -186,7 +202,7 @@
                     <div class="settings-group">
                         <label>Profile Picture</label>
                         <div class="avatar-upload">
-                            <img id="settingsAvatar" src="icons/user.svg" alt="" />
+                            <img id="settingsAvatar" src="icons/user.png" alt="" />
                             <input type="file" id="avatarUpload" accept="image/*" />
                             <button class="btn-secondary" onclick="document.getElementById('avatarUpload').click()">Change</button>
                         </div>
@@ -235,11 +251,6 @@
                         <p class="setting-desc">Add an extra layer of security to your account.</p>
                     </div>
                     <div class="settings-group">
-                        <label>Session Management</label>
-                        <button class="btn-secondary" id="sessionsBtn">View Active Sessions</button>
-                        <p class="setting-desc">Manage devices where you're logged in.</p>
-                    </div>
-                    <div class="settings-group">
                         <label>Privacy Mode</label>
                         <div class="toggle-group">
                             <label class="toggle">
@@ -264,9 +275,33 @@
                 </div>
             </div>
         </div>
+
+        <!-- File Attachment Modal -->
+        <div id="fileModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content file-modal">
+                <button class="modal-close" id="fileModalClose">
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                </button>
+                <h3>Attach File</h3>
+                <div class="file-preview" id="filePreview">
+                    <img id="filePreviewImage" src="icons/image-placeholder.png" alt="Preview" />
+                    <video id="filePreviewVideo" controls style="display:none; max-width:100%; max-height:300px;"></video>
+                </div>
+                <div class="file-input-group">
+                    <button class="btn-secondary" id="fileSelectBtn">Select File</button>
+                    <input type="file" id="fileInput" accept="image/*,video/*" style="display:none;" />
+                </div>
+                <div class="settings-group">
+                    <label>Title/Caption (Optional)</label>
+                    <input type="text" id="fileCaption" placeholder="Add a title or description..." />
+                </div>
+                <button class="btn-primary" id="fileSendBtn">Send</button>
+            </div>
+        </div>
     </div>
 
     <script src="config.js"></script>
     <script src="script.js"></script>
 </body>
-  </html>
+</html>
