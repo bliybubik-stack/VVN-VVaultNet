@@ -15,12 +15,12 @@
             twofa: false,
             privacy: false,
             devMode: false,
-            lastSeen: true,
-            readReceipts: true,
-            typingIndicators: true
+            autoLock: 'never',
+            sessionTimeout: 'never',
+            messageHistory: 'forever',
+            theme: 'dark'
         },
-        loadingComplete: false,
-        currentTheme: 'dark'
+        loadingComplete: false
     };
 
     // Get CONFIG from window
@@ -95,18 +95,13 @@
         twofaToggle: document.getElementById('twofaToggle'),
         privacyToggle: document.getElementById('privacyToggle'),
         devToggle: document.getElementById('devToggle'),
-        lastSeenToggle: document.getElementById('lastSeenToggle'),
-        readReceiptsToggle: document.getElementById('readReceiptsToggle'),
-        typingIndicatorsToggle: document.getElementById('typingIndicatorsToggle'),
         e2eeStatus: document.getElementById('e2eeStatus'),
         twofaStatus: document.getElementById('twofaStatus'),
         privacyStatus: document.getElementById('privacyStatus'),
         devStatus: document.getElementById('devStatus'),
-        lastSeenStatus: document.getElementById('lastSeenStatus'),
-        readReceiptsStatus: document.getElementById('readReceiptsStatus'),
-        typingIndicatorsStatus: document.getElementById('typingIndicatorsStatus'),
         chatAvatar: document.getElementById('chatAvatar'),
         chatHeaderInfo: document.getElementById('chatHeaderInfo'),
+        // Selection elements
         selectBtn: document.getElementById('selectBtn'),
         userSettingsBtn: document.getElementById('userSettingsBtn'),
         chatSettingsBtn: document.getElementById('chatSettingsBtn'),
@@ -135,6 +130,18 @@
         bgCustom: document.getElementById('bgCustom'),
         bgUpload: document.getElementById('bgUpload'),
         createNoteBtn: document.getElementById('createNoteBtn'),
+        themeBtn: document.getElementById('themeBtn'),
+        // New security elements
+        autoLockTimer: document.getElementById('autoLockTimer'),
+        sessionTimeout: document.getElementById('sessionTimeout'),
+        messageHistory: document.getElementById('messageHistory'),
+        // New theme elements
+        primaryColor: document.getElementById('primaryColor'),
+        secondaryColor: document.getElementById('secondaryColor'),
+        textColor: document.getElementById('textColor'),
+        accentColor: document.getElementById('accentColor'),
+        applyCustomTheme: document.getElementById('applyCustomTheme'),
+        // File elements
         clipBtn: document.getElementById('clipBtn'),
         fileModal: document.getElementById('fileModal'),
         fileModalClose: document.getElementById('fileModalClose'),
@@ -143,14 +150,7 @@
         filePreviewImage: document.getElementById('filePreviewImage'),
         filePreviewVideo: document.getElementById('filePreviewVideo'),
         fileCaption: document.getElementById('fileCaption'),
-        fileSendBtn: document.getElementById('fileSendBtn'),
-        themeModal: document.getElementById('themeModal'),
-        themeModalClose: document.getElementById('themeModalClose'),
-        themeBtn: document.getElementById('themeBtn'),
-        primaryColor: document.getElementById('primaryColor'),
-        secondaryColor: document.getElementById('secondaryColor'),
-        textColor: document.getElementById('textColor'),
-        applyCustomTheme: document.getElementById('applyCustomTheme')
+        fileSendBtn: document.getElementById('fileSendBtn')
     };
 
     // ---------- NEW STATE VARIABLES ----------
@@ -166,85 +166,8 @@
     };
     let pendingFile = null;
     let pendingFileType = null;
-
-    // ---------- THEME CONFIGURATIONS ----------
-    const THEMES = {
-        dark: {
-            name: 'Dark',
-            desc: 'Classic dark theme for night use',
-            vars: {
-                '--bg-primary': '#0a0a0a',
-                '--bg-secondary': '#141414',
-                '--bg-tertiary': '#1a1a1a',
-                '--bg-card': '#1e1e1e',
-                '--text-primary': '#f0f0f0',
-                '--text-secondary': '#999',
-                '--dark-purple': '#2d1b69',
-                '--message-outgoing': '#2d1b69',
-                '--message-incoming': '#1a1a1a'
-            }
-        },
-        light: {
-            name: 'Light',
-            desc: 'Clean light theme for daytime use',
-            vars: {
-                '--bg-primary': '#f5f5f5',
-                '--bg-secondary': '#ffffff',
-                '--bg-tertiary': '#f0f0f0',
-                '--bg-card': '#ffffff',
-                '--text-primary': '#1a1a1a',
-                '--text-secondary': '#666',
-                '--dark-purple': '#4a2b8a',
-                '--message-outgoing': '#4a2b8a',
-                '--message-incoming': '#e8e8e8'
-            }
-        },
-        ocean: {
-            name: 'Ocean',
-            desc: 'Deep blue ocean vibes',
-            vars: {
-                '--bg-primary': '#0a1628',
-                '--bg-secondary': '#0f1f3a',
-                '--bg-tertiary': '#142a4a',
-                '--bg-card': '#1a3555',
-                '--text-primary': '#d0e8ff',
-                '--text-secondary': '#8ab4d6',
-                '--dark-purple': '#1a4a6b',
-                '--message-outgoing': '#1a4a6b',
-                '--message-incoming': '#0f2a45'
-            }
-        },
-        forest: {
-            name: 'Forest',
-            desc: 'Natural green forest theme',
-            vars: {
-                '--bg-primary': '#0a1a0a',
-                '--bg-secondary': '#0f2a0f',
-                '--bg-tertiary': '#143a14',
-                '--bg-card': '#1a4a1a',
-                '--text-primary': '#d0ffd0',
-                '--text-secondary': '#8ab48a',
-                '--dark-purple': '#1a4a2a',
-                '--message-outgoing': '#1a4a2a',
-                '--message-incoming': '#0f2a15'
-            }
-        },
-        sunset: {
-            name: 'Sunset',
-            desc: 'Warm sunset colors',
-            vars: {
-                '--bg-primary': '#1a0a1a',
-                '--bg-secondary': '#2a102a',
-                '--bg-tertiary': '#3a1a3a',
-                '--bg-card': '#4a2a4a',
-                '--text-primary': '#ffd0d0',
-                '--text-secondary': '#d68a8a',
-                '--dark-purple': '#6b2a4a',
-                '--message-outgoing': '#6b2a4a',
-                '--message-incoming': '#3a1a2a'
-            }
-        }
-    };
+    let autoLockTimeout = null;
+    let lastActivity = Date.now();
 
     // ---------- UTILITY FUNCTIONS ----------
     function formatTime(ts) {
@@ -460,55 +383,6 @@
         return success;
     }
 
-    // ---------- THEME FUNCTIONS ----------
-    function applyTheme(themeName) {
-        state.currentTheme = themeName;
-        const theme = THEMES[themeName];
-        if (!theme) return;
-
-        const root = document.documentElement;
-        for (const [key, value] of Object.entries(theme.vars)) {
-            root.style.setProperty(key, value);
-        }
-
-        // Update theme options UI
-        document.querySelectorAll('.theme-option').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.theme === themeName);
-        });
-
-        localStorage.setItem('vvn_theme', themeName);
-        
-        // Update preview in settings if visible
-        if (DOM.settingsModal && DOM.settingsModal.classList.contains('active')) {
-            updateThemePreview(themeName);
-        }
-    }
-
-    function updateThemePreview(themeName) {
-        const previews = document.querySelectorAll('.theme-preview');
-        previews.forEach(el => {
-            el.className = 'theme-preview';
-            if (el.dataset.theme === themeName) {
-                el.classList.add(themeName);
-            }
-        });
-    }
-
-    function applyCustomTheme() {
-        const primary = document.getElementById('primaryColor')?.value || '#2d1b69';
-        const secondary = document.getElementById('secondaryColor')?.value || '#141414';
-        const text = document.getElementById('textColor')?.value || '#f0f0f0';
-        
-        const root = document.documentElement;
-        root.style.setProperty('--dark-purple', primary);
-        root.style.setProperty('--bg-secondary', secondary);
-        root.style.setProperty('--text-primary', text);
-        root.style.setProperty('--message-outgoing', primary);
-        
-        localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text }));
-        state.currentTheme = 'custom';
-    }
-
     // ---------- AUTH ----------
     async function loginUser(username, password) {
         const users = state.localCache.users;
@@ -523,6 +397,7 @@
         localStorage.setItem('vvn_session', JSON.stringify({ username: user.username }));
         state.currentUser = user;
         renderMessenger();
+        resetAutoLock();
         return true;
     }
 
@@ -552,6 +427,7 @@
         localStorage.setItem('vvn_session', JSON.stringify({ username: newUser.username }));
         state.currentUser = newUser;
         renderMessenger();
+        resetAutoLock();
         return true;
     }
 
@@ -585,8 +461,28 @@
         state.currentUser = null;
         state.currentChatPartner = null;
         if (state.syncInterval) clearInterval(state.syncInterval);
+        if (autoLockTimeout) clearTimeout(autoLockTimeout);
         if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
         if (DOM.messenger) DOM.messenger.style.display = 'none';
+    }
+
+    // ---------- AUTO LOCK ----------
+    function resetAutoLock() {
+        if (autoLockTimeout) clearTimeout(autoLockTimeout);
+        const lockTime = parseInt(state.settings.autoLock);
+        if (lockTime && lockTime !== 'never') {
+            autoLockTimeout = setTimeout(() => {
+                if (state.currentUser) {
+                    logout();
+                    alert('Auto-locked due to inactivity.');
+                }
+            }, lockTime * 60 * 1000);
+        }
+    }
+
+    function updateActivity() {
+        lastActivity = Date.now();
+        resetAutoLock();
     }
 
     // ---------- CHAT LIST ----------
@@ -653,6 +549,7 @@
         document.querySelectorAll('.chat-item').forEach(el => {
             el.addEventListener('click', function() {
                 openChat(this.dataset.partner);
+                updateActivity();
             });
         });
     }
@@ -823,6 +720,7 @@
         renderChatList();
         if (DOM.messageInput) DOM.messageInput.value = '';
         scrollToBottom();
+        updateActivity();
     }
 
     // ---------- SEARCH ----------
@@ -866,6 +764,7 @@
                 openChat(this.dataset.username);
                 DOM.searchResults.style.display = 'none';
                 if (DOM.searchInput) DOM.searchInput.value = '';
+                updateActivity();
             });
         });
     }
@@ -923,20 +822,19 @@
         if (DOM.twofaToggle) DOM.twofaToggle.checked = state.settings.twofa;
         if (DOM.privacyToggle) DOM.privacyToggle.checked = state.settings.privacy;
         if (DOM.devToggle) DOM.devToggle.checked = state.settings.devMode;
-        if (DOM.lastSeenToggle) DOM.lastSeenToggle.checked = state.settings.lastSeen !== undefined ? state.settings.lastSeen : true;
-        if (DOM.readReceiptsToggle) DOM.readReceiptsToggle.checked = state.settings.readReceipts !== undefined ? state.settings.readReceipts : true;
-        if (DOM.typingIndicatorsToggle) DOM.typingIndicatorsToggle.checked = state.settings.typingIndicators !== undefined ? state.settings.typingIndicators : true;
 
         if (DOM.e2eeStatus) DOM.e2eeStatus.textContent = state.settings.e2ee ? 'Enabled' : 'Disabled';
         if (DOM.twofaStatus) DOM.twofaStatus.textContent = state.settings.twofa ? 'Enabled' : 'Disabled';
         if (DOM.privacyStatus) DOM.privacyStatus.textContent = state.settings.privacy ? 'Enabled' : 'Disabled';
         if (DOM.devStatus) DOM.devStatus.textContent = state.settings.devMode ? 'Enabled' : 'Disabled';
-        if (DOM.lastSeenStatus) DOM.lastSeenStatus.textContent = state.settings.lastSeen !== undefined ? (state.settings.lastSeen ? 'Enabled' : 'Disabled') : 'Enabled';
-        if (DOM.readReceiptsStatus) DOM.readReceiptsStatus.textContent = state.settings.readReceipts !== undefined ? (state.settings.readReceipts ? 'Enabled' : 'Disabled') : 'Enabled';
-        if (DOM.typingIndicatorsStatus) DOM.typingIndicatorsStatus.textContent = state.settings.typingIndicators !== undefined ? (state.settings.typingIndicators ? 'Enabled' : 'Disabled') : 'Enabled';
 
-        // Update theme preview
-        updateThemePreview(state.currentTheme);
+        // Security settings
+        if (DOM.autoLockTimer) DOM.autoLockTimer.value = state.settings.autoLock || 'never';
+        if (DOM.sessionTimeout) DOM.sessionTimeout.value = state.settings.sessionTimeout || 'never';
+        if (DOM.messageHistory) DOM.messageHistory.value = state.settings.messageHistory || 'forever';
+
+        // Apply current theme
+        applyTheme(state.settings.theme || 'dark');
 
         if (DOM.settingsModal) DOM.settingsModal.classList.add('active');
     }
@@ -985,6 +883,115 @@
             if (DOM.settingsModal) DOM.settingsModal.classList.remove('active');
             alert('Settings saved successfully!');
         }
+    }
+
+    // ---------- THEME FUNCTIONS ----------
+    function applyTheme(theme) {
+        state.settings.theme = theme;
+        localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+        
+        document.querySelectorAll('.theme-card').forEach(card => {
+            card.classList.remove('active');
+            if (card.dataset.theme === theme) {
+                card.classList.add('active');
+            }
+        });
+
+        const root = document.documentElement;
+        
+        // Reset all theme variables first
+        root.style.setProperty('--bg-primary', '');
+        root.style.setProperty('--bg-secondary', '');
+        root.style.setProperty('--bg-tertiary', '');
+        root.style.setProperty('--bg-card', '');
+        root.style.setProperty('--text-primary', '');
+        root.style.setProperty('--text-secondary', '');
+        root.style.setProperty('--dark-purple', '');
+        root.style.setProperty('--dark-purple-glow', '');
+
+        if (theme === 'dark') {
+            root.style.setProperty('--bg-primary', '#0a0a0a');
+            root.style.setProperty('--bg-secondary', '#141414');
+            root.style.setProperty('--bg-tertiary', '#1a1a1a');
+            root.style.setProperty('--bg-card', '#1e1e1e');
+            root.style.setProperty('--text-primary', '#f0f0f0');
+            root.style.setProperty('--text-secondary', '#999');
+            root.style.setProperty('--dark-purple', '#2d1b69');
+            root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
+        } else if (theme === 'light') {
+            root.style.setProperty('--bg-primary', '#f5f5f5');
+            root.style.setProperty('--bg-secondary', '#ffffff');
+            root.style.setProperty('--bg-tertiary', '#f0f0f0');
+            root.style.setProperty('--bg-card', '#ffffff');
+            root.style.setProperty('--text-primary', '#1a1a1a');
+            root.style.setProperty('--text-secondary', '#666');
+            root.style.setProperty('--dark-purple', '#4a2b8a');
+            root.style.setProperty('--dark-purple-glow', 'rgba(74, 43, 138, 0.2)');
+        } else if (theme === 'midnight') {
+            root.style.setProperty('--bg-primary', '#0a0e1a');
+            root.style.setProperty('--bg-secondary', '#0f1524');
+            root.style.setProperty('--bg-tertiary', '#141c2e');
+            root.style.setProperty('--bg-card', '#1a2238');
+            root.style.setProperty('--text-primary', '#7b9ac9');
+            root.style.setProperty('--text-secondary', '#5a7a9a');
+            root.style.setProperty('--dark-purple', '#1a2a5a');
+            root.style.setProperty('--dark-purple-glow', 'rgba(26, 42, 90, 0.3)');
+        } else if (theme === 'forest') {
+            root.style.setProperty('--bg-primary', '#0d1a0d');
+            root.style.setProperty('--bg-secondary', '#122412');
+            root.style.setProperty('--bg-tertiary', '#1a2e1a');
+            root.style.setProperty('--bg-card', '#1f3a1f');
+            root.style.setProperty('--text-primary', '#7bc97b');
+            root.style.setProperty('--text-secondary', '#5a9a5a');
+            root.style.setProperty('--dark-purple', '#1a4a1a');
+            root.style.setProperty('--dark-purple-glow', 'rgba(26, 74, 26, 0.3)');
+        } else if (theme === 'ocean') {
+            root.style.setProperty('--bg-primary', '#0a0d1a');
+            root.style.setProperty('--bg-secondary', '#0f1524');
+            root.style.setProperty('--bg-tertiary', '#141c2e');
+            root.style.setProperty('--bg-card', '#1a2238');
+            root.style.setProperty('--text-primary', '#7b9ac9');
+            root.style.setProperty('--text-secondary', '#5a7a9a');
+            root.style.setProperty('--dark-purple', '#1a3a6a');
+            root.style.setProperty('--dark-purple-glow', 'rgba(26, 58, 106, 0.3)');
+        } else if (theme === 'custom') {
+            // Load custom colors
+            const customTheme = localStorage.getItem('vvn_custom_theme');
+            if (customTheme) {
+                const ct = JSON.parse(customTheme);
+                root.style.setProperty('--dark-purple', ct.primary || '#2d1b69');
+                root.style.setProperty('--bg-secondary', ct.secondary || '#141414');
+                root.style.setProperty('--text-primary', ct.text || '#f0f0f0');
+                root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
+                root.style.setProperty('--bg-primary', '#0a0a0a');
+                root.style.setProperty('--bg-tertiary', '#1a1a1a');
+                root.style.setProperty('--bg-card', '#1e1e1e');
+                root.style.setProperty('--text-secondary', '#999');
+            }
+            document.getElementById('customThemeOptions').style.display = 'block';
+            return;
+        }
+        document.getElementById('customThemeOptions').style.display = 'none';
+    }
+
+    function applyCustomTheme() {
+        const primary = document.getElementById('primaryColor')?.value || '#2d1b69';
+        const secondary = document.getElementById('secondaryColor')?.value || '#141414';
+        const text = document.getElementById('textColor')?.value || '#f0f0f0';
+        const accent = document.getElementById('accentColor')?.value || '#2d1b69';
+        
+        const root = document.documentElement;
+        root.style.setProperty('--dark-purple', primary);
+        root.style.setProperty('--bg-secondary', secondary);
+        root.style.setProperty('--text-primary', text);
+        root.style.setProperty('--accent', accent);
+        root.style.setProperty('--accent-hover', accent);
+        root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
+        
+        localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text, accent }));
+        state.settings.theme = 'custom';
+        localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+        alert('Custom theme applied!');
     }
 
     // ---------- SELECTION FUNCTIONS ----------
@@ -1319,27 +1326,9 @@
         const blocked = localStorage.getItem('vvn_blocked');
         if (blocked) blockedUsers = JSON.parse(blocked);
         
-        const theme = localStorage.getItem('vvn_theme');
-        if (theme && THEMES[theme]) {
-            state.currentTheme = theme;
-            applyTheme(theme);
-        } else {
-            state.currentTheme = 'dark';
-            applyTheme('dark');
-        }
-        
-        const customTheme = localStorage.getItem('vvn_custom_theme');
-        if (customTheme) {
-            const ct = JSON.parse(customTheme);
-            if (document.getElementById('primaryColor')) {
-                document.getElementById('primaryColor').value = ct.primary;
-            }
-            if (document.getElementById('secondaryColor')) {
-                document.getElementById('secondaryColor').value = ct.secondary;
-            }
-            if (document.getElementById('textColor')) {
-                document.getElementById('textColor').value = ct.text;
-            }
+        const savedSettings = localStorage.getItem('vvn_settings');
+        if (savedSettings) {
+            state.settings = JSON.parse(savedSettings);
         }
     }
 
@@ -1432,13 +1421,9 @@
 
         updateLoading(80);
 
-        const savedSettings = localStorage.getItem('vvn_settings');
-        if (savedSettings) {
-            try {
-                state.settings = JSON.parse(savedSettings);
-            } catch (e) {
-                state.settings = { e2ee: true, twofa: false, privacy: false, devMode: false, lastSeen: true, readReceipts: true, typingIndicators: true };
-            }
+        // Apply saved theme
+        if (state.settings.theme) {
+            applyTheme(state.settings.theme);
         }
 
         updateLoading(90);
@@ -1527,6 +1512,7 @@
         if (DOM.messageInput) {
             DOM.messageInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') sendMessage();
+                updateActivity();
             });
         }
 
@@ -1633,28 +1619,43 @@
             });
         }
 
-        if (DOM.lastSeenToggle) {
-            DOM.lastSeenToggle.addEventListener('change', function() {
-                state.settings.lastSeen = this.checked;
-                if (DOM.lastSeenStatus) DOM.lastSeenStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+        // Security settings
+        if (DOM.autoLockTimer) {
+            DOM.autoLockTimer.addEventListener('change', function() {
+                state.settings.autoLock = this.value;
+                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+                resetAutoLock();
+            });
+        }
+
+        if (DOM.sessionTimeout) {
+            DOM.sessionTimeout.addEventListener('change', function() {
+                state.settings.sessionTimeout = this.value;
                 localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
             });
         }
 
-        if (DOM.readReceiptsToggle) {
-            DOM.readReceiptsToggle.addEventListener('change', function() {
-                state.settings.readReceipts = this.checked;
-                if (DOM.readReceiptsStatus) DOM.readReceiptsStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
+        if (DOM.messageHistory) {
+            DOM.messageHistory.addEventListener('change', function() {
+                state.settings.messageHistory = this.value;
                 localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
             });
         }
 
-        if (DOM.typingIndicatorsToggle) {
-            DOM.typingIndicatorsToggle.addEventListener('change', function() {
-                state.settings.typingIndicators = this.checked;
-                if (DOM.typingIndicatorsStatus) DOM.typingIndicatorsStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
-                localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+        // Theme cards
+        document.querySelectorAll('.theme-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const theme = this.dataset.theme;
+                applyTheme(theme);
+                if (theme !== 'custom') {
+                    document.getElementById('customThemeOptions').style.display = 'none';
+                }
             });
+        });
+
+        // Custom theme
+        if (DOM.applyCustomTheme) {
+            DOM.applyCustomTheme.addEventListener('click', applyCustomTheme);
         }
 
         // Avatar upload
@@ -1698,11 +1699,13 @@
             DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
         }
 
+        // ---------- NEW EVENT LISTENERS ----------
         // Selection
         if (DOM.selectBtn) {
             DOM.selectBtn.addEventListener('click', toggleSelectionMode);
         }
 
+        // Message click for selection
         document.addEventListener('click', function(e) {
             const msgEl = e.target.closest('.message');
             if (msgEl && selectionMode) {
@@ -1711,6 +1714,7 @@
             }
         });
 
+        // Selection toolbar buttons
         if (DOM.deleteSelectedBtn) {
             DOM.deleteSelectedBtn.addEventListener('click', showDeleteModal);
         }
@@ -1721,6 +1725,7 @@
             DOM.cancelSelectionBtn.addEventListener('click', clearSelection);
         }
 
+        // Delete modal
         if (DOM.deleteForMeBtn) {
             DOM.deleteForMeBtn.addEventListener('click', () => deleteMessages(false));
         }
@@ -1731,6 +1736,7 @@
             DOM.deleteModalClose.addEventListener('click', () => DOM.deleteModal.classList.remove('active'));
         }
 
+        // Pinned dock
         if (DOM.unpinBtn) {
             DOM.unpinBtn.addEventListener('click', () => {
                 const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
@@ -1741,6 +1747,7 @@
             DOM.pinnedMessagePreview.addEventListener('click', scrollToPinnedMessage);
         }
 
+        // User settings
         if (DOM.userSettingsBtn) {
             DOM.userSettingsBtn.addEventListener('click', openUserSettings);
         }
@@ -1763,6 +1770,7 @@
             DOM.pinContactBtn.addEventListener('click', pinContact);
         }
 
+        // Chat settings
         if (DOM.chatSettingsBtn) {
             DOM.chatSettingsBtn.addEventListener('click', openChatSettings);
         }
@@ -1787,23 +1795,6 @@
             DOM.createNoteBtn.addEventListener('click', createNote);
         }
 
-        // Theme settings (now in main settings)
-        document.querySelectorAll('.theme-option').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const themeName = this.dataset.theme;
-                if (themeName === 'custom') {
-                    document.getElementById('customThemeOptions').style.display = 'block';
-                    return;
-                }
-                document.getElementById('customThemeOptions').style.display = 'none';
-                applyTheme(themeName);
-            });
-        });
-
-        if (DOM.applyCustomTheme) {
-            DOM.applyCustomTheme.addEventListener('click', applyCustomTheme);
-        }
-
         // File attachment
         if (DOM.clipBtn) {
             DOM.clipBtn.addEventListener('click', openFileModal);
@@ -1821,12 +1812,32 @@
             DOM.fileSendBtn.addEventListener('click', sendMessage);
         }
 
+        // Theme button in profile
+        if (DOM.themeBtn) {
+            DOM.themeBtn.addEventListener('click', function() {
+                DOM.profileModal.classList.remove('active');
+                openSettings();
+                // Switch to themes tab
+                document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+                const themesTab = document.querySelector('.settings-tab[data-tab="themes"]');
+                if (themesTab) themesTab.classList.add('active');
+                const themesPanel = document.getElementById('themesSettings');
+                if (themesPanel) themesPanel.classList.add('active');
+            });
+        }
+
         // Close modals on overlay click
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function() {
                 this.parentElement.classList.remove('active');
             });
         });
+
+        // Activity tracking for auto-lock
+        document.addEventListener('click', updateActivity);
+        document.addEventListener('keydown', updateActivity);
+        document.addEventListener('mousemove', updateActivity);
 
         // Resize
         window.addEventListener('resize', updateMobileView);
@@ -1839,6 +1850,7 @@
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
-        console.log('🎨 Themes available:', Object.keys(THEMES).join(', '));
+        console.log('🎨 5 Themes available: Dark, Light, Midnight, Forest, Ocean');
+        console.log('🔒 3 New Security settings: Auto-Lock, Session Timeout, Message History');
     });
 })();
