@@ -38,73 +38,6 @@
         SYNC_INTERVAL: 5000
     };
 
-    // ---------- PATTERN ROTATION ----------
-    const patterns = ['pattern-1', 'pattern-2', 'pattern-3', 'pattern-4', 'pattern-5'];
-    let currentPatternIndex = 0;
-
-    function rotatePattern() {
-        const bg = document.querySelector('.chat-bg-pattern');
-        if (bg) {
-            bg.className = 'chat-bg-pattern ' + patterns[currentPatternIndex];
-            currentPatternIndex = (currentPatternIndex + 1) % patterns.length;
-        }
-    }
-
-    // ---------- UTILITY FUNCTIONS ----------
-    function formatTime(ts) {
-        const d = new Date(ts);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    function formatDate(ts) {
-        const d = new Date(ts);
-        return d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
-    }
-
-    function getAge(ts) {
-        const days = Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24));
-        if (days < 1) return 'Today';
-        if (days === 1) return '1 day';
-        return days + ' days';
-    }
-
-    function getUserTags(username) {
-        const tags = [];
-        if (CONFIG.OWNERS && CONFIG.OWNERS.includes(username)) tags.push({ label: 'OWNER', class: 'tag-owner' });
-        if (CONFIG.DEVS && CONFIG.DEVS.includes(username)) tags.push({ label: 'DEV', class: 'tag-dev' });
-        if (CONFIG.ADMINS && CONFIG.ADMINS.includes(username)) tags.push({ label: 'ADMIN', class: 'tag-admin' });
-        if (CONFIG.MODS && CONFIG.MODS.includes(username)) tags.push({ label: 'MOD', class: 'tag-mod' });
-        if (CONFIG.STAFF && CONFIG.STAFF.includes(username)) tags.push({ label: 'STAFF', class: 'tag-staff' });
-        if (tags.length === 0) {
-            const user = getUserByUsername(username);
-            if (user && user.created) {
-                const age = Date.now() - user.created;
-                if (age > 30 * 24 * 60 * 60 * 1000) {
-                    tags.push({ label: 'MEMBER', class: 'tag-member' });
-                } else {
-                    tags.push({ label: 'GUEST', class: 'tag-guest' });
-                }
-            } else {
-                tags.push({ label: 'MEMBER', class: 'tag-member' });
-            }
-        }
-        return tags;
-    }
-
-    function getUserByUsername(username) {
-        return state.localCache.users.find(u => u.username === username);
-    }
-
-    function getChatKey(u1, u2) {
-        return [u1, u2].sort().join('_');
-    }
-
-    function getDisplayName(username) {
-        if (contactCustomNames[username]) return contactCustomNames[username];
-        const user = getUserByUsername(username);
-        return user ? user.displayName || username : username;
-    }
-
     // ---------- DOM REFS ----------
     const DOM = {
         loadingOverlay: document.getElementById('loadingOverlay'),
@@ -257,6 +190,73 @@
         time: '14:32'
     }];
 
+    // ---------- PATTERN ROTATION ----------
+    const patterns = ['pattern-1', 'pattern-2', 'pattern-3', 'pattern-4', 'pattern-5'];
+    let currentPatternIndex = 0;
+
+    function rotatePattern() {
+        const bg = document.querySelector('.chat-bg-pattern');
+        if (bg) {
+            bg.className = 'chat-bg-pattern ' + patterns[currentPatternIndex];
+            currentPatternIndex = (currentPatternIndex + 1) % patterns.length;
+        }
+    }
+
+    // ---------- UTILITY FUNCTIONS ----------
+    function formatTime(ts) {
+        const d = new Date(ts);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatDate(ts) {
+        const d = new Date(ts);
+        return d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function getAge(ts) {
+        const days = Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24));
+        if (days < 1) return 'Today';
+        if (days === 1) return '1 day';
+        return days + ' days';
+    }
+
+    function getUserTags(username) {
+        const tags = [];
+        if (CONFIG.OWNERS && CONFIG.OWNERS.includes(username)) tags.push({ label: 'OWNER', class: 'tag-owner' });
+        if (CONFIG.DEVS && CONFIG.DEVS.includes(username)) tags.push({ label: 'DEV', class: 'tag-dev' });
+        if (CONFIG.ADMINS && CONFIG.ADMINS.includes(username)) tags.push({ label: 'ADMIN', class: 'tag-admin' });
+        if (CONFIG.MODS && CONFIG.MODS.includes(username)) tags.push({ label: 'MOD', class: 'tag-mod' });
+        if (CONFIG.STAFF && CONFIG.STAFF.includes(username)) tags.push({ label: 'STAFF', class: 'tag-staff' });
+        if (tags.length === 0) {
+            const user = getUserByUsername(username);
+            if (user && user.created) {
+                const age = Date.now() - user.created;
+                if (age > 30 * 24 * 60 * 60 * 1000) {
+                    tags.push({ label: 'MEMBER', class: 'tag-member' });
+                } else {
+                    tags.push({ label: 'GUEST', class: 'tag-guest' });
+                }
+            } else {
+                tags.push({ label: 'MEMBER', class: 'tag-member' });
+            }
+        }
+        return tags;
+    }
+
+    function getUserByUsername(username) {
+        return state.localCache.users.find(function(u) { return u.username === username; });
+    }
+
+    function getChatKey(u1, u2) {
+        return [u1, u2].sort().join('_');
+    }
+
+    function getDisplayName(username) {
+        if (contactCustomNames[username]) return contactCustomNames[username];
+        const user = getUserByUsername(username);
+        return user ? user.displayName || username : username;
+    }
+
     // ---------- NOTIFICATIONS ----------
     function sendNotification(username, message, time) {
         if (!('Notification' in window)) return;
@@ -370,7 +370,7 @@
                     for (const msg of newMsgs) {
                         if (msg.sender !== state.currentUser?.username) {
                             hasNewMessages = true;
-                            const partner = key.split('_').find(u => u !== state.currentUser?.username);
+                            const partner = key.split('_').find(function(u) { return u !== state.currentUser?.username; });
                             if (partner && state.currentUser) {
                                 sendNotification(partner, msg.text || '📎 File', formatTime(msg.timestamp));
                             }
@@ -383,7 +383,7 @@
             const localUsers = state.localCache.users || [];
             const mergedUsers = [...localUsers];
             for (const rUser of remoteUsers) {
-                if (!mergedUsers.find(u => u.username === rUser.username)) {
+                if (!mergedUsers.find(function(u) { return u.username === rUser.username; })) {
                     mergedUsers.push(rUser);
                 }
             }
@@ -465,7 +465,7 @@
     // ---------- AUTH ----------
     async function loginUser(username, password) {
         const users = state.localCache.users;
-        const user = users.find(u => u.username === username && u.password === password);
+        const user = users.find(function(u) { return u.username === username && u.password === password; });
         if (!user) {
             if (DOM.authError) {
                 DOM.authError.textContent = 'Incorrect username or password';
@@ -482,7 +482,7 @@
 
     async function registerUser(username, displayName, password) {
         const users = state.localCache.users;
-        if (users.find(u => u.username === username)) {
+        if (users.find(function(u) { return u.username === username; })) {
             if (DOM.regError) {
                 DOM.regError.textContent = 'Username already taken';
                 DOM.regError.style.display = 'block';
@@ -518,7 +518,7 @@
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (!session) { logout(); return; }
 
-        const user = state.localCache.users.find(u => u.username === session.username);
+        const user = state.localCache.users.find(function(u) { return u.username === session.username; });
         if (!user) { logout(); return; }
 
         state.currentUser = user;
@@ -1532,24 +1532,19 @@
         }
         updateLoading(5);
 
-        // Load saved settings
         loadSavedSettings();
 
-        // Request notification permission
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
 
-        // Check for saved device or auto-detect
         const savedDevice = localStorage.getItem('vvn_device');
         if (savedDevice && ['phone', 'tablet', 'pc'].includes(savedDevice)) {
             selectDevice(savedDevice);
         } else {
-            // Show device selection
             showDeviceSelection();
         }
 
-        // Load from cache
         const cached = localStorage.getItem('vvn_cache');
         if (cached) {
             try {
@@ -1562,7 +1557,6 @@
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
-            // Create default owner account if no users exist
             if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
                 state.localCache.users.push({
                     username: 'vaultnet',
@@ -1575,7 +1569,6 @@
                 });
                 console.log('👤 Default owner account created: vaultnet / admin123');
             }
-            // Add sample messages for first-time users
             if (Object.keys(state.localCache.messages).length === 0) {
                 state.localCache.messages = {
                     'testmessages_vaultnet': sampleMessages.map(function(msg, i) {
@@ -1597,7 +1590,6 @@
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         }
 
-        // Set initial pattern
         const bg = document.querySelector('.chat-bg-pattern');
         if (bg) {
             const randomPattern = patterns[Math.floor(Math.random() * patterns.length)];
@@ -1607,7 +1599,6 @@
 
         updateLoading(50);
 
-        // Try to sync with JSONBin
         try {
             const remote = await fetchFromBin();
             if (remote) {
@@ -1616,7 +1607,6 @@
                     chats: remote.chats || {},
                     messages: remote.messages || {}
                 };
-                // Ensure default owner exists
                 if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
                     state.localCache.users.push({
                         username: 'vaultnet',
@@ -1637,20 +1627,17 @@
 
         updateLoading(80);
 
-        // Apply theme
         if (state.settings.theme) {
             applyTheme(state.settings.theme);
         }
 
         updateLoading(90);
 
-        // Check session
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
             const user = state.localCache.users.find(function(u) { return u.username === session.username; });
             if (user) {
                 state.currentUser = user;
-                // Hide device screen if visible
                 if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
                 if (DOM.statusBar) DOM.statusBar.style.display = 'flex';
                 if (DOM.messengerLayout) DOM.messengerLayout.style.display = 'flex';
@@ -1666,7 +1653,6 @@
             }
         }
 
-        // Show device selection or auth
         if (savedDevice) {
             if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
             if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
@@ -1919,7 +1905,7 @@
             DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
         }
 
-        // ---------- DEVICE SELECTION ----------
+        // Device selection
         document.querySelectorAll('.device-option').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 const device = this.dataset.device;
@@ -1938,7 +1924,7 @@
             });
         }
 
-        // ---------- DROPDOWN MENU ----------
+        // Dropdown menu
         if (DOM.chatDropdownBtn) {
             DOM.chatDropdownBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -1960,7 +1946,7 @@
             }
         });
 
-        // ---------- SELECTION ----------
+        // Selection
         if (DOM.selectBtn) {
             DOM.selectBtn.addEventListener('click', toggleSelectionMode);
         }
@@ -2088,7 +2074,7 @@
             });
         });
 
-        // Activity tracking for auto-lock
+        // Activity tracking
         document.addEventListener('click', updateActivity);
         document.addEventListener('keydown', updateActivity);
         document.addEventListener('mousemove', updateActivity);
