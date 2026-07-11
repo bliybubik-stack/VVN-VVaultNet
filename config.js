@@ -5,11 +5,11 @@ const CONFIG = {
     MASTER_KEY: '$2a$10$xpnzNbyjOgRS6s..YVAMhOqwuj/FOPnU15M2J9uSwHBsRJAygi1Lu',
     
     // Owner/Developer usernames (these users get special tags)
-    OWNERS: ['vaultnet', 'vnnters'],
-    DEVS: ['vaultnet', 'vnnters'],
-    ADMINS: ['vaultnet'],
+    OWNERS: ['vaultnet', 'VVNTERS'],
+    DEVS: ['vaultnet', 'VVNTERS'],
+    ADMINS: ['vaultnet', 'VVNTERS'],
     MODS: ['vaultnet'],
-    STAFF: ['vaultnet', 'vnnters'],
+    STAFF: ['vaultnet', 'VVNTERS'],
     
     // Developer PIN for viewing passwords (20+ characters)
     DEV_PIN: '2356-23543-13451-78901-23456',
@@ -26,7 +26,5 @@ const CONFIG = {
     }
 };
 
-// Export for use in other files
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = CONFIG;
-}
+// Make CONFIG globally available
+window.CONFIG = CONFIG;
