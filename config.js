@@ -26,4 +26,9 @@ const CONFIG = {
     }
 };
 
+// Make CONFIG globally available
 window.CONFIG = CONFIG;
+
+console.log('🔐 VVN Config loaded');
+console.log('👤 Owners:', CONFIG.OWNERS);
+console.log('🔑 Developer PIN set');
