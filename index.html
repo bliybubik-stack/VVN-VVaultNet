@@ -129,11 +129,45 @@
                                     <div class="status" id="chatPartnerStatus">offline</div>
                                 </div>
                             </div>
-                            <button class="profile-btn" id="profileBtn">
-                                <img src="icons/user.png" alt="Profile" width="24" height="24" />
+                            <div class="chat-header-actions">
+                                <button class="header-action-btn" id="selectBtn" title="Select messages">
+                                    <img src="icons/select.png" alt="Select" width="22" height="22" />
+                                </button>
+                                <button class="header-action-btn" id="userSettingsBtn" title="User settings">
+                                    <img src="icons/user-settings.png" alt="User settings" width="22" height="22" />
+                                </button>
+                                <button class="header-action-btn" id="chatSettingsBtn" title="Chat settings">
+                                    <img src="icons/chat-settings.png" alt="Chat settings" width="22" height="22" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Pinned Messages Dock -->
+                        <div id="pinnedDock" style="display:none; background:var(--bg-tertiary); border-bottom:1px solid var(--border-color); padding:6px 16px; flex-shrink:0;">
+                            <div style="display:flex; align-items:center; gap:8px; color:var(--text-secondary); font-size:0.8rem;">
+                                <img src="icons/pin.png" alt="Pinned" width="16" height="16" />
+                                <span>Pinned message</span>
+                                <span style="color:var(--text-muted); margin-left:auto; cursor:pointer;" id="unpinBtn">✕</span>
+                            </div>
+                            <div id="pinnedMessagePreview" style="color:var(--snow-white); font-size:0.85rem; padding:4px 0; cursor:pointer;"></div>
+                        </div>
+
+                        <div class="chat-messages" id="chatMessages"></div>
+
+                        <!-- Selection Toolbar -->
+                        <div id="selectionToolbar" style="display:none; background:var(--dark-purple); padding:8px 16px; flex-shrink:0; align-items:center; gap:12px; border-top:1px solid var(--border-color);">
+                            <span id="selectedCount" style="color:var(--snow-white); font-size:0.85rem; flex:1;">0 selected</span>
+                            <button class="toolbar-btn" id="deleteSelectedBtn" title="Delete">
+                                <img src="icons/delete.png" alt="Delete" width="20" height="20" />
+                            </button>
+                            <button class="toolbar-btn" id="pinSelectedBtn" title="Pin">
+                                <img src="icons/pin.png" alt="Pin" width="20" height="20" />
+                            </button>
+                            <button class="toolbar-btn" id="cancelSelectionBtn" title="Cancel">
+                                <img src="icons/close.png" alt="Cancel" width="20" height="20" />
                             </button>
                         </div>
-                        <div class="chat-messages" id="chatMessages"></div>
+
                         <div class="chat-input-bar" id="chatInputBar">
                             <button class="clip-btn" id="clipBtn">
                                 <img src="icons/clip.png" alt="Attach" width="28" height="28" />
@@ -144,6 +178,123 @@
                             </button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div id="deleteModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content delete-modal">
+                <button class="modal-close" id="deleteModalClose">
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                </button>
+                <h3>Delete Messages</h3>
+                <p style="color:var(--text-secondary); margin:12px 0;">Choose how to delete the selected messages:</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn-secondary" id="deleteForMeBtn">Delete for me</button>
+                    <button class="btn-primary" id="deleteForEveryoneBtn">Delete for everyone</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Settings Modal -->
+        <div id="userSettingsModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content settings-modal">
+                <button class="modal-close" id="userSettingsClose">
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                </button>
+                <h2>User Settings</h2>
+                <div class="settings-group">
+                    <label>Contact Actions</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="btn-secondary" id="renameContactBtn">
+                            <img src="icons/rename.png" alt="Rename" width="16" height="16" /> Rename
+                        </button>
+                        <button class="btn-secondary" id="deleteContactBtn">
+                            <img src="icons/delete-contact.png" alt="Delete" width="16" height="16" /> Delete Contact
+                        </button>
+                        <button class="btn-secondary" id="blockUserBtn">
+                            <img src="icons/block.png" alt="Block" width="16" height="16" /> Block
+                        </button>
+                        <button class="btn-secondary" id="unblockUserBtn" style="display:none;">
+                            <img src="icons/unblock.png" alt="Unblock" width="16" height="16" /> Unblock
+                        </button>
+                        <button class="btn-secondary" id="pinContactBtn">
+                            <img src="icons/pin.png" alt="Pin" width="16" height="16" /> Pin Contact
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Settings Modal -->
+        <div id="chatSettingsModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content settings-modal">
+                <button class="modal-close" id="chatSettingsClose">
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                </button>
+                <h2>Chat Settings</h2>
+                <div class="settings-group">
+                    <label>Message Bubble Style</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="btn-secondary bubble-style" data-style="rounded">Rounded</button>
+                        <button class="btn-secondary bubble-style" data-style="square">Square</button>
+                        <button class="btn-secondary bubble-style" data-style="modern">Modern</button>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label>Chat Background</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="btn-secondary" id="bgDefault">Default</button>
+                        <button class="btn-secondary" id="bgCustom">Custom Image</button>
+                        <input type="file" id="bgUpload" accept="image/*" style="display:none;" />
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label>Fun Stuff</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="btn-secondary" id="createNoteBtn">
+                            <img src="icons/note.png" alt="Note" width="16" height="16" /> Create Note
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Theme Settings Modal -->
+        <div id="themeModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content settings-modal">
+                <button class="modal-close" id="themeModalClose">
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                </button>
+                <h2>Theme Settings</h2>
+                <div class="settings-group">
+                    <label>App Theme</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="btn-secondary theme-option" data-theme="dark">Dark</button>
+                        <button class="btn-secondary theme-option" data-theme="light">Light</button>
+                        <button class="btn-secondary theme-option" data-theme="auto">Auto</button>
+                        <button class="btn-secondary theme-option" data-theme="custom">Custom</button>
+                    </div>
+                </div>
+                <div id="customThemeOptions" style="display:none; margin-top:12px;">
+                    <div class="settings-group">
+                        <label>Primary Color</label>
+                        <input type="color" id="primaryColor" value="#2d1b69" />
+                    </div>
+                    <div class="settings-group">
+                        <label>Secondary Color</label>
+                        <input type="color" id="secondaryColor" value="#141414" />
+                    </div>
+                    <div class="settings-group">
+                        <label>Text Color</label>
+                        <input type="color" id="textColor" value="#f0f0f0" />
+                    </div>
+                    <button class="btn-primary" id="applyCustomTheme">Apply Custom Theme</button>
                 </div>
             </div>
         </div>
@@ -178,7 +329,8 @@
                         <div class="profile-age" id="profileAge">Age: 0 days</div>
                     </div>
                     <div class="profile-footer">
-                        <div class="dev-note">- VVN. VEIL-VAULT-NET.<br>Your security matters.</div>
+                        <button class="btn-secondary" id="themeBtn" style="width:100%;">Theme Settings</button>
+                        <div class="dev-note" style="margin-top:12px;">- VVN. VEIL-VAULT-NET.<br>Your security matters.</div>
                     </div>
                 </div>
             </div>
@@ -304,4 +456,4 @@
     <script src="config.js"></script>
     <script src="script.js"></script>
 </body>
-</html>
+            </html>
