@@ -1,5 +1,4 @@
 :root {
-    /* Color Palette */
     --snow-white: #f8f8f8;
     --charcoal: #2a2a2a;
     --matte-black: #0a0a0a;
@@ -8,68 +7,22 @@
     --bg-primary: #0a0a0a;
     --bg-secondary: #141414;
     --bg-tertiary: #1a1a1a;
-    --bg-card: rgba(30, 30, 30, 0.85);
-    --bg-input: rgba(40, 40, 40, 0.8);
-    --border-color: rgba(42, 42, 42, 0.5);
+    --bg-card: rgba(30, 30, 30, 0.75);
+    --bg-input: rgba(40, 40, 40, 0.7);
+    --border-color: rgba(42, 42, 42, 0.4);
     --text-primary: #f0f0f0;
     --text-secondary: #999;
     --text-muted: #555;
     --accent: #2d1b69;
     --accent-hover: #3d2b79;
     --accent-glow: rgba(45, 27, 105, 0.4);
-    --shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --glass-blur: blur(24px);
     --radius: 16px;
     --radius-sm: 10px;
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    --glass-blur: blur(20px);
-}
-
-/* Light Theme Recommended Banner */
-.light-theme-banner {
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05));
-    border: 1px solid rgba(255, 215, 0, 0.2);
-    border-radius: var(--radius-sm);
-    padding: 8px 14px;
-    margin-bottom: 12px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-}
-.light-theme-banner span {
-    font-weight: 500;
-    color: var(--dark-purple);
-}
-
-/* Glassmorphism Base */
-.glass {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-}
-
-.glass-dark {
-    background: rgba(10, 10, 10, 0.7);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: var(--glass-shadow);
-}
-
-.glass-card {
-    background: rgba(30, 30, 30, 0.75);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: var(--glass-shadow);
-    border-radius: var(--radius);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {
@@ -81,7 +34,7 @@
 
 body {
     background: var(--matte-black);
-    color: var(--snow-white);
+    color: var(--text-primary);
     height: 100vh;
     overflow: hidden;
     display: flex;
@@ -102,7 +55,24 @@ body {
     position: relative;
 }
 
-/* Rounded Logo Styles */
+/* Glassmorphism Base */
+.glass-card {
+    background: var(--bg-card);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--radius);
+}
+
+.glass-dark {
+    background: rgba(10, 10, 10, 0.7);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+}
+
+/* Rounded Logo */
 .rounded-logo {
     border-radius: 20px;
     background: var(--glass-bg);
@@ -120,7 +90,6 @@ body {
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
-    box-shadow: 0 2px 20px rgba(45, 27, 105, 0.2);
 }
 
 /* Loading */
@@ -215,7 +184,7 @@ body {
     font-weight: 500;
     font-size: 2rem;
     letter-spacing: -1px;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .auth-brand p {
     color: var(--text-secondary);
@@ -224,10 +193,12 @@ body {
     margin-top: 4px;
 }
 .auth-box {
-    background: var(--glass-card);
+    background: var(--bg-card);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius);
     padding: 28px 24px;
-    border: 1px solid var(--glass-border);
     box-shadow: var(--glass-shadow);
 }
 .auth-tabs {
@@ -254,7 +225,7 @@ body {
 }
 .auth-tab.active {
     background: var(--glass-bg);
-    color: var(--snow-white);
+    color: var(--text-primary);
     box-shadow: 0 2px 12px rgba(0,0,0,0.4);
 }
 .auth-form {
@@ -283,10 +254,10 @@ body {
     background: var(--bg-input);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
-    color: var(--snow-white);
+    color: var(--text-primary);
     font-size: 0.9rem;
     outline: none;
-    transition: 0.2s;
+    transition: 0.3s;
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
 }
@@ -302,9 +273,9 @@ body {
 .btn-primary {
     padding: 12px;
     background: var(--dark-purple);
-    border: none;
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
-    color: var(--snow-white);
+    color: var(--text-primary);
     font-weight: 600;
     font-size: 0.9rem;
     cursor: pointer;
@@ -312,7 +283,6 @@ body {
     letter-spacing: 0.5px;
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
 }
 .btn-primary:hover {
     background: var(--accent-hover);
@@ -383,8 +353,8 @@ body {
     -webkit-backdrop-filter: var(--glass-blur);
 }
 .sync-btn:hover {
-    background: var(--glass-card);
-    color: var(--snow-white);
+    background: var(--bg-card);
+    color: var(--text-primary);
     transform: scale(1.02);
 }
 
@@ -430,12 +400,11 @@ body {
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
-    box-shadow: 0 2px 20px rgba(45, 27, 105, 0.2);
 }
 .logo-container h2 {
     font-weight: 600;
     font-size: 1.1rem;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .settings-btn {
     background: var(--glass-bg);
@@ -449,8 +418,8 @@ body {
     -webkit-backdrop-filter: var(--glass-blur);
 }
 .settings-btn:hover {
-    background: var(--glass-card);
-    color: var(--snow-white);
+    background: var(--bg-card);
+    color: var(--text-primary);
     transform: rotate(90deg) scale(1.05);
 }
 .user-badge {
@@ -463,7 +432,7 @@ body {
     margin-bottom: 10px;
     border: 1px solid var(--glass-border);
     font-size: 0.85rem;
-    color: var(--snow-white);
+    color: var(--text-primary);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
 }
@@ -479,7 +448,7 @@ body {
     background: var(--bg-input);
     border: 1px solid var(--glass-border);
     border-radius: 20px;
-    color: var(--snow-white);
+    color: var(--text-primary);
     font-size: 0.85rem;
     outline: none;
     transition: 0.3s;
@@ -507,7 +476,7 @@ body {
     top: 100%;
     left: 0;
     right: 0;
-    background: var(--glass-card);
+    background: var(--bg-card);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
     margin-top: 4px;
@@ -525,7 +494,7 @@ body {
     gap: 10px;
     cursor: pointer;
     transition: 0.2s;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .search-result-item:hover {
     background: var(--glass-bg);
@@ -564,7 +533,7 @@ body {
     gap: 10px;
     cursor: pointer;
     transition: 0.2s;
-    color: var(--snow-white);
+    color: var(--text-primary);
     background: var(--glass-bg);
     margin-bottom: 2px;
     backdrop-filter: var(--glass-blur);
@@ -572,12 +541,12 @@ body {
     border: 1px solid transparent;
 }
 .chat-item:hover {
-    background: var(--glass-card);
+    background: var(--bg-card);
     border-color: var(--glass-border);
     transform: translateX(4px);
 }
 .chat-item.active {
-    background: var(--glass-card);
+    background: var(--bg-card);
     border-left: 3px solid var(--dark-purple);
     border-color: var(--glass-border);
 }
@@ -592,7 +561,7 @@ body {
     font-weight: 600;
     font-size: 0.9rem;
     flex-shrink: 0;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .chat-item .chat-info {
     flex: 1;
@@ -604,7 +573,7 @@ body {
     display: flex;
     align-items: center;
     gap: 4px;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .chat-item .chat-info .cname .tag {
     font-size: 0.55rem;
@@ -698,8 +667,8 @@ body {
     -webkit-backdrop-filter: var(--glass-blur);
 }
 .back-btn:hover {
-    background: var(--glass-card);
-    color: var(--snow-white);
+    background: var(--bg-card);
+    color: var(--text-primary);
     transform: scale(1.05);
 }
 .chat-header-info {
@@ -724,12 +693,12 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 0.9rem;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .chat-header-info .chatuser {
     font-weight: 500;
     font-size: 0.9rem;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .chat-header-info .status {
     font-size: 0.7rem;
@@ -747,12 +716,11 @@ body {
     -webkit-backdrop-filter: var(--glass-blur);
 }
 .profile-btn:hover {
-    background: var(--glass-card);
-    color: var(--snow-white);
+    background: var(--bg-card);
+    color: var(--text-primary);
     transform: scale(1.05);
 }
 
-/* Chat Header Actions */
 .chat-header-actions {
     display: flex;
     gap: 6px;
@@ -773,8 +741,8 @@ body {
     -webkit-backdrop-filter: var(--glass-blur);
 }
 .header-action-btn:hover {
-    background: var(--glass-card);
-    color: var(--snow-white);
+    background: var(--bg-card);
+    color: var(--text-primary);
     transform: scale(1.05);
 }
 .header-action-btn.active {
@@ -800,7 +768,7 @@ body {
 .toolbar-btn {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
-    color: var(--snow-white);
+    color: var(--text-primary);
     cursor: pointer;
     padding: 6px;
     border-radius: 8px;
@@ -812,16 +780,16 @@ body {
     -webkit-backdrop-filter: var(--glass-blur);
 }
 .toolbar-btn:hover {
-    background: var(--glass-card);
+    background: var(--bg-card);
     transform: scale(1.05);
 }
 #selectedCount {
-    color: var(--snow-white);
+    color: var(--text-primary);
     font-size: 0.85rem;
     flex: 1;
 }
 
-/* Message Selection - FIXED: circles on left for all messages */
+/* Messages */
 .message {
     position: relative;
     cursor: default;
@@ -861,7 +829,7 @@ body {
 }
 .message.selected .selection-circle::after {
     content: '\2713';
-    color: var(--snow-white);
+    color: var(--text-primary);
     font-size: 12px;
     display: flex;
     align-items: center;
@@ -873,24 +841,18 @@ body {
     background: var(--dark-purple-glow) !important;
     border-color: var(--dark-purple);
 }
-.message .selection-circle {
-    display: none;
-}
-.message.selectable .selection-circle {
-    display: block;
-}
 
 .message.outgoing {
     align-self: flex-end;
     background: var(--dark-purple);
     border-bottom-right-radius: 4px;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .message.incoming {
     align-self: flex-start;
     background: var(--glass-dark);
     border-bottom-left-radius: 4px;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .message .time {
     font-size: 0.6rem;
@@ -924,7 +886,6 @@ body {
     50% { background: var(--dark-purple-glow); transform: scale(1.02); box-shadow: 0 0 30px var(--dark-purple-glow); }
 }
 
-/* Bubble styles */
 .message.bubble-rounded {
     border-radius: 16px;
 }
@@ -973,10 +934,10 @@ body {
 }
 .pinned-content .unpin-btn:hover {
     background: var(--glass-bg);
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 #pinnedMessagePreview {
-    color: var(--snow-white);
+    color: var(--text-primary);
     font-size: 0.85rem;
     padding: 4px 0;
     cursor: pointer;
@@ -997,16 +958,16 @@ body {
     background-position: center;
 }
 
-/* CHAT INPUT BAR - DOUBLED HEIGHT */
+/* Chat Input Bar - Fixed Height */
 .chat-input-bar {
-    padding: 12px 16px 16px 16px;
+    padding: 12px 16px calc(16px + var(--safe-bottom));
     background: var(--glass-dark);
     border-top: 1px solid var(--glass-border);
     display: flex;
-    gap: 14px;
+    gap: 12px;
     flex-shrink: 0;
     align-items: center;
-    min-height: 80px;
+    min-height: 76px;
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
 }
@@ -1016,7 +977,7 @@ body {
     border: 1px solid var(--glass-border);
     color: var(--text-secondary);
     cursor: pointer;
-    padding: 12px;
+    padding: 10px;
     border-radius: 12px;
     transition: 0.3s;
     flex-shrink: 0;
@@ -1025,29 +986,29 @@ body {
     justify-content: center;
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    width: 52px;
-    height: 52px;
+    width: 48px;
+    height: 48px;
 }
 .chat-input-bar .clip-btn:hover {
-    background: var(--glass-card);
-    color: var(--snow-white);
+    background: var(--bg-card);
+    color: var(--text-primary);
     transform: scale(1.05);
 }
 .chat-input-bar .clip-btn img {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
 }
 
 .chat-input-bar input {
     flex: 1;
-    padding: 14px 18px;
+    padding: 12px 16px;
     background: var(--bg-input);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
-    color: var(--snow-white);
+    color: var(--text-primary);
     font-size: 0.95rem;
     outline: none;
-    min-height: 52px;
+    min-height: 48px;
     transition: 0.3s;
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -1065,8 +1026,8 @@ body {
     background: var(--dark-purple);
     border: 1px solid var(--glass-border);
     border-radius: 50%;
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1080,8 +1041,8 @@ body {
     box-shadow: 0 0 30px var(--dark-purple-glow);
 }
 .chat-input-bar button img {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
 }
 
 /* Modal */
@@ -1105,18 +1066,18 @@ body {
 }
 .modal-content {
     position: relative;
-    background: var(--glass-card);
+    background: var(--bg-card);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius);
     padding: 24px;
     max-width: 480px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
-    border: 1px solid var(--glass-border);
     box-shadow: var(--glass-shadow);
     z-index: 1;
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
 }
 .modal-close {
     position: absolute;
@@ -1133,12 +1094,12 @@ body {
     -webkit-backdrop-filter: var(--glass-blur);
 }
 .modal-close:hover {
-    background: var(--glass-card);
-    color: var(--snow-white);
+    background: var(--bg-card);
+    color: var(--text-primary);
     transform: scale(1.05);
 }
 
-/* Profile Card */
+/* Profile */
 .profile-modal {
     max-width: 420px;
 }
@@ -1162,13 +1123,10 @@ body {
     border: 3px solid var(--dark-purple);
     box-shadow: 0 0 30px var(--dark-purple-glow);
 }
-.profile-name-container {
-    flex: 1;
-}
 .profile-name {
     font-size: 1.2rem;
     font-weight: 600;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .profile-tags {
     display: flex;
@@ -1247,7 +1205,7 @@ body {
     opacity: 0.7;
 }
 
-/* Settings Modal */
+/* Settings */
 .settings-modal {
     max-width: 520px;
 }
@@ -1255,7 +1213,7 @@ body {
     font-weight: 500;
     font-size: 1.3rem;
     margin-bottom: 16px;
-    color: var(--snow-white);
+    color: var(--text-primary);
 }
 .settings-tabs {
     display: flex;
@@ -1281,7 +1239,7 @@ body {
 }
 .settings-tab.active {
     background: var(--glass-bg);
-    color: var(--snow-white);
+    color: var(--text-primary);
     box-shadow: 0 2px 12px rgba(0,0,0,0.3);
 }
 .settings-panel {
@@ -1309,7 +1267,7 @@ body {
     background: var(--bg-input);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
-    color: var(--snow-white);
+    color: var(--text-primary);
     font-size: 0.9rem;
     outline: none;
     transition: 0.3s;
@@ -1357,7 +1315,7 @@ body {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
-    color: var(--snow-white);
+    color: var(--text-primary);
     cursor: pointer;
     transition: 0.3s;
     font-size: 0.85rem;
@@ -1368,7 +1326,7 @@ body {
     -webkit-backdrop-filter: var(--glass-blur);
 }
 .btn-secondary:hover {
-    background: var(--glass-card);
+    background: var(--bg-card);
     transform: scale(1.02);
 }
 .toggle-group {
@@ -1411,7 +1369,7 @@ body {
 }
 .toggle input:checked + .toggle-slider::before {
     transform: translateX(20px);
-    background: var(--snow-white);
+    background: var(--text-primary);
 }
 .setting-desc {
     font-size: 0.75rem;
@@ -1419,19 +1377,10 @@ body {
     margin-top: 2px;
 }
 
-/* Delete Modal */
-.delete-modal h3 {
-    color: var(--snow-white);
-}
-.delete-modal p {
-    color: var(--text-secondary);
-    margin: 12px 0;
-}
-
 /* Theme Cards */
 .theme-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 10px;
     margin-top: 10px;
 }
@@ -1454,18 +1403,18 @@ body {
 }
 .theme-card.active {
     border-color: var(--dark-purple);
-    box-shadow: 0 0 0 3px var(--dark-purple-glow), 0 8px 32px var(--dark-purple-glow);
+    box-shadow: 0 0 0 3px var(--dark-purple-glow);
 }
 .theme-card .theme-icon {
     font-size: 1.5rem;
     margin-bottom: 4px;
 }
 .theme-card .theme-name {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
 }
 
-/* Custom Theme Options */
+/* Custom Theme */
 #customThemeOptions {
     margin-top: 16px;
     padding: 16px;
@@ -1474,18 +1423,6 @@ body {
     border: 1px solid var(--glass-border);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-}
-#customThemeOptions .settings-group {
-    margin-bottom: 12px;
-}
-#customThemeOptions input[type="color"] {
-    width: 100%;
-    height: 40px;
-    padding: 4px;
-    background: var(--bg-input);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
 }
 .color-grid {
     display: grid;
@@ -1514,11 +1451,10 @@ body {
     max-width: 440px;
 }
 .file-modal h3 {
-    color: var(--snow-white);
+    color: var(--text-primary);
     margin-bottom: 16px;
 }
 .file-preview {
-    text-align: center;
     margin-bottom: 16px;
     padding: 12px;
     background: var(--glass-dark);
@@ -1526,12 +1462,38 @@ body {
     border: 1px solid var(--glass-border);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-}
-.file-preview img,
-.file-preview video {
-    max-width: 100%;
     max-height: 250px;
+    overflow-y: auto;
+}
+.file-preview-item {
+    display: inline-block;
+    margin: 4px;
+    position: relative;
     border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+}
+.file-preview-item img,
+.file-preview-item video {
+    max-width: 120px;
+    max-height: 120px;
+    display: block;
+}
+.file-preview-item .remove-file {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .file-input-group {
     display: flex;
@@ -1540,14 +1502,6 @@ body {
 }
 .file-input-group .btn-secondary {
     flex: 1;
-}
-
-/* Light Theme Specific */
-.light-theme .glass,
-.light-theme .glass-dark,
-.light-theme .glass-card {
-    background: rgba(255, 255, 255, 0.7);
-    border-color: rgba(255, 255, 255, 0.3);
 }
 
 /* Mobile */
@@ -1583,53 +1537,37 @@ body {
         padding: 20px 16px;
     }
     .chat-input-bar {
-        min-height: 72px;
-        padding: 10px 12px 14px 12px;
+        min-height: 68px;
+        padding: 10px 12px calc(12px + var(--safe-bottom));
+        gap: 10px;
     }
     .chat-input-bar input {
-        min-height: 46px;
+        min-height: 42px;
         font-size: 0.9rem;
         padding: 10px 14px;
     }
     .chat-input-bar button {
-        width: 50px;
-        height: 50px;
-    }
-    .chat-input-bar .clip-btn {
         width: 46px;
         height: 46px;
-        padding: 10px;
+    }
+    .chat-input-bar .clip-btn {
+        width: 42px;
+        height: 42px;
+        padding: 8px;
     }
     .chat-input-bar .clip-btn img {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
     }
     .chat-input-bar button img {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
     }
-    .message .file-content img,
-    .message .file-content video {
-        max-width: 180px;
-        max-height: 150px;
+    .theme-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     }
-    .auth-brand img {
-        width: 64px;
-        height: 64px;
-    }
-    .chat-header-actions .header-action-btn {
-        padding: 4px;
-    }
-    .chat-header-actions .header-action-btn img {
-        width: 18px;
-        height: 18px;
-    }
-    #selectionToolbar {
-        padding: 6px 12px;
-    }
-    .toolbar-btn img {
-        width: 18px;
-        height: 18px;
+    .color-grid {
+        grid-template-columns: 1fr;
     }
     .message .selection-circle {
         left: -20px;
@@ -1654,16 +1592,6 @@ body {
         padding: 6px 12px;
         font-size: 0.75rem;
     }
-    .theme-grid {
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    }
-    .color-grid {
-        grid-template-columns: 1fr;
-    }
-    .light-theme-banner {
-        font-size: 0.7rem;
-        padding: 6px 10px;
-    }
 }
 @media (max-width: 480px) {
     .auth-box {
@@ -1686,20 +1614,10 @@ body {
         height: 28px;
         font-size: 0.7rem;
     }
-    .chat-item .chat-info .cname {
-        font-size: 0.8rem;
-    }
-    .chat-item .chat-info .preview {
-        font-size: 0.65rem;
-    }
     .message {
         font-size: 0.8rem;
         padding: 6px 10px;
         max-width: 90%;
-    }
-    .auth-brand img {
-        width: 56px;
-        height: 56px;
     }
     .theme-grid {
         grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
@@ -1711,10 +1629,7 @@ body {
         font-size: 1.2rem;
     }
     .theme-card .theme-name {
-        font-size: 0.7rem;
-    }
-    .settings-modal h2 {
-        font-size: 1.1rem;
+        font-size: 0.65rem;
     }
     .message .selection-circle {
         left: -16px;
@@ -1722,31 +1637,48 @@ body {
         height: 14px;
     }
     .chat-input-bar {
-        min-height: 64px;
-        padding: 8px 10px 12px 10px;
-        gap: 10px;
+        min-height: 60px;
+        padding: 8px 10px calc(10px + var(--safe-bottom));
+        gap: 8px;
     }
     .chat-input-bar input {
-        min-height: 40px;
+        min-height: 38px;
         font-size: 0.8rem;
         padding: 8px 12px;
         border-radius: 20px;
     }
     .chat-input-bar button {
-        width: 44px;
-        height: 44px;
-    }
-    .chat-input-bar .clip-btn {
         width: 40px;
         height: 40px;
-        padding: 8px;
+    }
+    .chat-input-bar .clip-btn {
+        width: 36px;
+        height: 36px;
+        padding: 6px;
     }
     .chat-input-bar .clip-btn img {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
     }
     .chat-input-bar button img {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
     }
-    }
+}
+
+/* Light Theme Support */
+.light-theme {
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f0f0f0;
+    --bg-card: rgba(255, 255, 255, 0.8);
+    --bg-input: rgba(240, 240, 240, 0.7);
+    --text-primary: #1a1a1a;
+    --text-secondary: #666;
+    --text-muted: #888;
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-bg: rgba(255, 255, 255, 0.5);
+    --dark-purple: #4a2b8a;
+    --dark-purple-glow: rgba(74, 43, 138, 0.2);
+    --accent-glow: rgba(74, 43, 138, 0.2);
+}
