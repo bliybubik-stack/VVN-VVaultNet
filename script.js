@@ -1,5 +1,18 @@
+// ============================================================
+// VVN Messenger - Version 1.0.0
+// ============================================================
+// Device Selection First - Always shows device screen on load
+// Real users from JSONBin database
+// Monochrome glassmorphism interface
+// ============================================================
+
 (function() {
     'use strict';
+
+    // ---------- VERSION ----------
+    const VVN_VERSION = '1.0.0';
+    console.log('🚀 VVN Messenger v' + VVN_VERSION);
+    console.log('📱 Device Selection First - Always!');
 
     // ---------- STATE ----------
     let state = {
@@ -20,7 +33,8 @@
             theme: 'dark'
         },
         loadingComplete: false,
-        deviceType: 'pc'
+        deviceType: 'pc',
+        version: VVN_VERSION
     };
 
     // Get CONFIG from window
@@ -148,7 +162,8 @@
         filePreviewContainer: document.getElementById('filePreviewContainer'),
         fileClearBtn: document.getElementById('fileClearBtn'),
         fileCaption: document.getElementById('fileCaption'),
-        fileSendBtn: document.getElementById('fileSendBtn')
+        fileSendBtn: document.getElementById('fileSendBtn'),
+        versionDisplay: document.getElementById('versionDisplay')
     };
 
     // ---------- STATE VARIABLES ----------
@@ -166,7 +181,7 @@
     let autoLockTimeout = null;
 
     // ---------- PATTERN ROTATION ----------
-    const patterns = ['pattern-grid', 'pattern-grid-large', 'pattern-dots', 'pattern-dots-small', 'pattern-dots-large'];
+    const patterns = ['pattern-1', 'pattern-2', 'pattern-3', 'pattern-4', 'pattern-5'];
     let currentPatternIndex = 0;
 
     function rotatePattern() {
@@ -435,6 +450,7 @@
         if (DOM.deviceScreen) DOM.deviceScreen.classList.remove('hidden');
         if (DOM.authScreen) DOM.authScreen.style.display = 'none';
         if (DOM.messenger) DOM.messenger.style.display = 'none';
+        console.log('📱 Device Selection Screen - Always First!');
     }
 
     // ---------- AUTH ----------
@@ -1490,9 +1506,34 @@
         }
     }
 
+    // ---------- ADD VERSION TO UI ----------
+    function addVersionToUI() {
+        // Add version to status bar
+        const statusBar = document.querySelector('.status-bar');
+        if (statusBar) {
+            const versionSpan = document.createElement('span');
+            versionSpan.style.cssText = 'opacity:0.3; font-size:0.6rem; margin-left:8px;';
+            versionSpan.textContent = 'v' + VVN_VERSION;
+            const syncText = statusBar.querySelector('.sync-text');
+            if (syncText) {
+                syncText.after(versionSpan);
+            }
+        }
+        
+        // Add version to device screen
+        const deviceBox = document.querySelector('.device-box');
+        if (deviceBox) {
+            const versionTag = document.createElement('div');
+            versionTag.style.cssText = 'margin-top:12px; color:var(--text-muted); font-size:0.6rem; opacity:0.3; letter-spacing:0.5px;';
+            versionTag.textContent = 'VVN v' + VVN_VERSION;
+            deviceBox.appendChild(versionTag);
+        }
+    }
+
     // ---------- INIT ----------
     async function init() {
-        console.log('🚀 Initializing VVN Messenger...');
+        console.log('🚀 VVN Messenger v' + VVN_VERSION);
+        console.log('📱 Device Selection First - Always shows on load');
         console.log('👤 This app uses REAL users from the JSONBin database.');
         console.log('💬 Sample messages are only shown for first-time users.');
         console.log('📱 Create accounts and chat with real users!');
@@ -1515,6 +1556,7 @@
         if (savedDevice && ['phone', 'tablet', 'pc'].includes(savedDevice)) {
             selectDevice(savedDevice);
         } else {
+            // ALWAYS SHOW DEVICE SELECTION FIRST
             showDeviceSelection();
         }
 
@@ -1594,17 +1636,23 @@
 
         updateLoading(90);
 
-        // Check session
+        // Add version to UI
+        addVersionToUI();
+
+        // Check session - but ONLY after device selection
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
             const user = state.localCache.users.find(function(u) { return u.username === session.username; });
             if (user) {
                 state.currentUser = user;
-                if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
-                if (DOM.statusBar) DOM.statusBar.style.display = 'flex';
-                if (DOM.messengerLayout) DOM.messengerLayout.style.display = 'flex';
+                // Don't auto-hide device screen - let user select device first
+                // The device selection buttons will handle hiding
                 renderMessenger();
-
+                // But keep device screen visible if not selected yet
+                if (!savedDevice) {
+                    // If no device saved, keep device screen visible
+                    showDeviceSelection();
+                }
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
 
@@ -1615,12 +1663,8 @@
             }
         }
 
-        if (savedDevice) {
-            if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
-            if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
-        } else {
-            showDeviceSelection();
-        }
+        // Always show device selection first
+        showDeviceSelection();
         if (DOM.messenger) DOM.messenger.style.display = 'none';
         updateLoading(100);
     }
@@ -2052,7 +2096,8 @@
         // Start app
         init();
 
-        console.log('✅ VVN Messenger fully loaded!');
+        console.log('✅ VVN Messenger v' + VVN_VERSION + ' fully loaded!');
+        console.log('📱 Device Selection ALWAYS shows first!');
         console.log('👤 Default owner: vaultnet');
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
