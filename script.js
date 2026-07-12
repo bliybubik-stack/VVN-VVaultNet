@@ -1,5 +1,3 @@
-// VVN Messenger - Main Application
-
 (function() {
     'use strict';
 
@@ -67,11 +65,9 @@
         chatPartnerName: document.getElementById('chatPartnerName'),
         chatPartnerStatus: document.getElementById('chatPartnerStatus'),
         chatMessages: document.getElementById('chatMessages'),
-        chatInputBar: document.getElementById('chatInputBar'),
         messageInput: document.getElementById('messageInput'),
         sendBtn: document.getElementById('sendBtn'),
         backBtn: document.getElementById('backBtn'),
-        profileBtn: document.getElementById('profileBtn'),
         settingsBtn: document.getElementById('settingsBtn'),
         syncDot: document.getElementById('syncDot'),
         syncStatus: document.getElementById('syncStatus'),
@@ -106,9 +102,6 @@
         devStatus: document.getElementById('devStatus'),
         chatAvatar: document.getElementById('chatAvatar'),
         chatHeaderInfo: document.getElementById('chatHeaderInfo'),
-        selectBtn: document.getElementById('selectBtn'),
-        userSettingsBtn: document.getElementById('userSettingsBtn'),
-        chatSettingsBtn: document.getElementById('chatSettingsBtn'),
         chatDropdownBtn: document.getElementById('chatDropdownBtn'),
         dropdownMenu: document.getElementById('dropdownMenu'),
         selectionToolbar: document.getElementById('selectionToolbar'),
@@ -171,28 +164,9 @@
     };
     let pendingFiles = [];
     let autoLockTimeout = null;
-    let lastActivity = Date.now();
-
-    // ---------- SAMPLE MESSAGES (only for first-time users) ----------
-    const sampleMessages = [{
-        type: 'text',
-        sender: 'incoming',
-        text: 'Hey! Welcome to VVN.',
-        time: '14:30'
-    }, {
-        type: 'text',
-        sender: 'outgoing',
-        text: 'Thanks! This is a real messenger.',
-        time: '14:31'
-    }, {
-        type: 'text',
-        sender: 'incoming',
-        text: 'Create an account and start chatting!',
-        time: '14:32'
-    }];
 
     // ---------- PATTERN ROTATION ----------
-    const patterns = ['pattern-1', 'pattern-2', 'pattern-3', 'pattern-4', 'pattern-5'];
+    const patterns = ['pattern-grid', 'pattern-grid-large', 'pattern-dots', 'pattern-dots-small', 'pattern-dots-large'];
     let currentPatternIndex = 0;
 
     function rotatePattern() {
@@ -256,10 +230,6 @@
         if (contactCustomNames[username]) return contactCustomNames[username];
         const user = getUserByUsername(username);
         return user ? user.displayName || username : username;
-    }
-
-    function getIconPath(name) {
-        return 'icons/' + name + '.png';
     }
 
     // ---------- NOTIFICATIONS ----------
@@ -566,7 +536,6 @@
     }
 
     function updateActivity() {
-        lastActivity = Date.now();
         resetAutoLock();
     }
 
@@ -623,7 +592,7 @@
                 const avatarLetter = partner.charAt(0).toUpperCase();
 
                 html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
-                html += '<div class="avatar"><img src="icons/user.png" alt="' + avatarLetter + '" /></div>';
+                html += '<div class="avatar">' + avatarLetter + '</div>';
                 html += '<div class="info">';
                 html += '<div class="name">' + displayName + ' ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
                 html += '<div class="preview">' + preview + '</div>';
@@ -658,12 +627,11 @@
         if (DOM.chatActive) DOM.chatActive.style.display = 'flex';
         if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'none';
         if (DOM.chatHeader) DOM.chatHeader.style.display = 'flex';
-        if (DOM.chatInputBar) DOM.chatInputBar.style.display = 'flex';
 
         const displayName = getDisplayName(partnerUsername);
         if (DOM.chatPartnerName) DOM.chatPartnerName.textContent = displayName;
         if (DOM.chatPartnerStatus) DOM.chatPartnerStatus.textContent = partner.online ? 'Online' : 'Offline';
-        if (DOM.chatAvatar) DOM.chatAvatar.innerHTML = '<img src="icons/user.png" alt="' + partner.username.charAt(0).toUpperCase() + '" />';
+        if (DOM.chatAvatar) DOM.chatAvatar.textContent = partner.username.charAt(0).toUpperCase();
 
         const chatKey = getChatKey(state.currentUser.username, partnerUsername);
         const msgs = state.localCache.messages[chatKey] || [];
@@ -841,7 +809,7 @@
             const tagHtml = tags.map(function(t) { return '<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">' + t.label + '</span>'; }).join('');
             const avatarLetter = u.username.charAt(0).toUpperCase();
             html += '<div class="search-result-item" data-username="' + u.username + '">';
-            html += '<div class="avatar"><img src="icons/user.png" alt="' + avatarLetter + '" /></div>';
+            html += '<div class="avatar">' + avatarLetter + '</div>';
             html += '<div class="info">';
             html += '<div class="uname">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
             html += '<div class="email">@' + u.username + '</div>';
@@ -1102,14 +1070,12 @@
     function toggleSelectionMode() {
         selectionMode = !selectionMode;
         if (selectionMode) {
-            if (DOM.selectBtn) DOM.selectBtn.classList.add('active');
             document.querySelectorAll('.message').forEach(function(msg) {
                 msg.classList.add('selectable');
             });
             if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('active');
         } else {
             clearSelection();
-            if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
             document.querySelectorAll('.message').forEach(function(msg) {
                 msg.classList.remove('selectable');
             });
@@ -1140,7 +1106,6 @@
         });
         updateSelectedCount();
         selectionMode = false;
-        if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
         document.querySelectorAll('.message').forEach(function(msg) {
             msg.classList.remove('selectable');
         });
@@ -1459,7 +1424,6 @@
                     const item = document.createElement('div');
                     item.className = 'file-preview-item';
                     const index = pendingFiles.length - 1;
-                    const icon = fileType === 'image' ? 'image-placeholder.png' : 'video.png';
                     item.innerHTML = (fileType === 'image' ? '<img src="' + data + '" />' : '<video controls><source src="' + data + '" /></video>') +
                         '<button class="remove-file" data-index="' + index + '">×</button>';
                     DOM.filePreviewContainer.appendChild(item);
@@ -1580,25 +1544,6 @@
                 });
                 console.log('👤 Default owner account created: vaultnet / admin123');
             }
-            // Add sample messages for first-time users
-            if (Object.keys(state.localCache.messages).length === 0) {
-                state.localCache.messages = {
-                    'testmessages_vaultnet': sampleMessages.map(function(msg, i) {
-                        return {
-                            sender: msg.sender === 'outgoing' ? 'vaultnet' : 'testmessages',
-                            text: msg.text,
-                            timestamp: Date.now() - (10 - i) * 60000
-                        };
-                    })
-                };
-                state.localCache.chats = {
-                    'testmessages_vaultnet': {
-                        participants: ['vaultnet', 'testmessages'],
-                        created: Date.now()
-                    }
-                };
-                console.log('💬 Sample messages added for first-time users');
-            }
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         }
 
@@ -1655,7 +1600,6 @@
             const user = state.localCache.users.find(function(u) { return u.username === session.username; });
             if (user) {
                 state.currentUser = user;
-                // Hide device screen if visible
                 if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
                 if (DOM.statusBar) DOM.statusBar.style.display = 'flex';
                 if (DOM.messengerLayout) DOM.messengerLayout.style.display = 'flex';
@@ -1671,7 +1615,6 @@
             }
         }
 
-        // Show device selection or auth
         if (savedDevice) {
             if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
             if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
@@ -1770,15 +1713,6 @@
                     state.currentChatPartner = null;
                     showPlaceholder();
                     renderChatList();
-                }
-            });
-        }
-
-        // Profile button (in header)
-        if (DOM.profileBtn) {
-            DOM.profileBtn.addEventListener('click', function() {
-                if (state.currentChatPartner) {
-                    showProfile(state.currentChatPartner);
                 }
             });
         }
@@ -1942,7 +1876,7 @@
             DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
         }
 
-        // ---------- DEVICE SELECTION ----------
+        // Device selection
         document.querySelectorAll('.device-option').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 const device = this.dataset.device;
@@ -1961,7 +1895,7 @@
             });
         }
 
-        // ---------- DROPDOWN MENU ----------
+        // Dropdown menu
         if (DOM.chatDropdownBtn) {
             DOM.chatDropdownBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -1983,11 +1917,7 @@
             }
         });
 
-        // ---------- SELECTION ----------
-        if (DOM.selectBtn) {
-            DOM.selectBtn.addEventListener('click', toggleSelectionMode);
-        }
-
+        // Selection
         document.addEventListener('click', function(e) {
             const msgEl = e.target.closest('.message');
             if (msgEl && selectionMode) {
@@ -2127,8 +2057,5 @@
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
-        console.log('🎨 5 background patterns available');
-        console.log('💎 Life glass effect with 80% clarity');
-        console.log('📏 Floating island input: 118px height + 40px bottom padding');
     });
 })();
