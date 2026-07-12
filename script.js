@@ -163,7 +163,7 @@
         fileClearBtn: document.getElementById('fileClearBtn'),
         fileCaption: document.getElementById('fileCaption'),
         fileSendBtn: document.getElementById('fileSendBtn'),
-        versionDisplay: document.getElementById('versionDisplay')
+        sidebar: document.getElementById('sidebar')
     };
 
     // ---------- STATE VARIABLES ----------
@@ -429,7 +429,9 @@
             root.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 12px)');
         }
 
+        // Update mobile view after device selection
         setTimeout(function() {
+            updateMobileView();
             window.dispatchEvent(new Event('resize'));
         }, 100);
     }
@@ -608,7 +610,7 @@
                 const avatarLetter = partner.charAt(0).toUpperCase();
 
                 html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
-                html += '<div class="avatar">' + avatarLetter + '</div>';
+                html += '<div class="avatar"><span>' + avatarLetter + '</span></div>';
                 html += '<div class="info">';
                 html += '<div class="name">' + displayName + ' ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
                 html += '<div class="preview">' + preview + '</div>';
@@ -735,9 +737,9 @@
     function showPlaceholder() {
         if (DOM.chatActive) DOM.chatActive.style.display = 'none';
         if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'flex';
+        // On mobile, always show sidebar when placeholder is shown
         if (state.isMobile) {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) sidebar.classList.remove('hide-mobile');
+            if (DOM.sidebar) DOM.sidebar.classList.remove('hide-mobile');
             if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
         }
     }
@@ -825,7 +827,7 @@
             const tagHtml = tags.map(function(t) { return '<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">' + t.label + '</span>'; }).join('');
             const avatarLetter = u.username.charAt(0).toUpperCase();
             html += '<div class="search-result-item" data-username="' + u.username + '">';
-            html += '<div class="avatar">' + avatarLetter + '</div>';
+            html += '<div class="avatar"><span>' + avatarLetter + '</span></div>';
             html += '<div class="info">';
             html += '<div class="uname">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
             html += '<div class="email">@' + u.username + '</div>';
@@ -1470,19 +1472,29 @@
 
     // ---------- MOBILE ----------
     function updateMobileView() {
-        state.isMobile = window.innerWidth < 820;
+        const isMobile = window.innerWidth < 820;
+        state.isMobile = isMobile;
+        
         const sidebar = document.getElementById('sidebar');
-        if (state.isMobile) {
+        const chatArea = document.getElementById('chatArea');
+        
+        if (!sidebar || !chatArea) return;
+        
+        if (isMobile) {
+            // On mobile, show either sidebar or chat area, never both
             if (state.currentChatPartner) {
-                if (sidebar) sidebar.classList.add('hide-mobile');
-                if (DOM.chatArea) DOM.chatArea.classList.add('active-mobile');
+                // Chat is open - show chat area, hide sidebar
+                sidebar.classList.add('hide-mobile');
+                chatArea.classList.add('active-mobile');
             } else {
-                if (sidebar) sidebar.classList.remove('hide-mobile');
-                if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
+                // No chat open - show sidebar, hide chat area
+                sidebar.classList.remove('hide-mobile');
+                chatArea.classList.remove('active-mobile');
             }
         } else {
-            if (sidebar) sidebar.classList.remove('hide-mobile');
-            if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
+            // On desktop, show both
+            sidebar.classList.remove('hide-mobile');
+            chatArea.classList.remove('active-mobile');
         }
     }
 
@@ -1536,7 +1548,6 @@
         console.log('📱 Device Selection First - Always shows on load');
         console.log('👤 This app uses REAL users from the JSONBin database.');
         console.log('💬 Sample messages are only shown for first-time users.');
-        console.log('📱 Create accounts and chat with real users!');
         
         if (DOM.loadingOverlay) {
             DOM.loadingOverlay.classList.remove('hidden');
@@ -1639,20 +1650,17 @@
         // Add version to UI
         addVersionToUI();
 
-        // Check session - but ONLY after device selection
+        // Check session
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
             const user = state.localCache.users.find(function(u) { return u.username === session.username; });
             if (user) {
                 state.currentUser = user;
-                // Don't auto-hide device screen - let user select device first
-                // The device selection buttons will handle hiding
                 renderMessenger();
-                // But keep device screen visible if not selected yet
-                if (!savedDevice) {
-                    // If no device saved, keep device screen visible
-                    showDeviceSelection();
-                }
+                // Update mobile view after render
+                setTimeout(function() {
+                    updateMobileView();
+                }, 50);
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
 
@@ -1663,7 +1671,7 @@
             }
         }
 
-        // Always show device selection first
+        // If no session, show device selection
         showDeviceSelection();
         if (DOM.messenger) DOM.messenger.style.display = 'none';
         updateLoading(100);
@@ -1751,12 +1759,10 @@
         if (DOM.backBtn) {
             DOM.backBtn.addEventListener('click', function() {
                 if (state.isMobile) {
-                    const sidebar = document.getElementById('sidebar');
-                    if (sidebar) sidebar.classList.remove('hide-mobile');
-                    if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
                     state.currentChatPartner = null;
                     showPlaceholder();
                     renderChatList();
+                    updateMobileView();
                 }
             });
         }
@@ -2091,7 +2097,9 @@
         document.addEventListener('mousemove', updateActivity);
 
         // Resize
-        window.addEventListener('resize', updateMobileView);
+        window.addEventListener('resize', function() {
+            updateMobileView();
+        });
 
         // Start app
         init();
