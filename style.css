@@ -1,3 +1,10 @@
+/* ----- CSS Reset & Base ----- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 :root {
     --matte-black: #0a0a0a;
     --charcoal: #1a1a1a;
@@ -20,14 +27,6 @@
     --radius-md: 14px;
     --radius-sm: 10px;
     --safe-bottom: env(safe-area-inset-bottom, 12px);
-    --input-height: 118px;
-    --input-bottom-padding: 40px;
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
 }
 
 body {
@@ -58,6 +57,21 @@ body {
     flex-direction: column;
     overflow: hidden;
     position: relative;
+}
+
+/* Version Tag */
+.version-tag {
+    margin-top: 12px;
+    color: var(--text-muted);
+    font-size: 0.6rem;
+    opacity: 0.3;
+    letter-spacing: 0.5px;
+}
+
+.version-text {
+    opacity: 0.3;
+    font-size: 0.6rem;
+    margin-left: 8px;
 }
 
 /* Chat Background Patterns */
@@ -2273,4 +2287,4 @@ body {
             inset 0 1px 0 rgba(255, 255, 255, 0.04),
             0 0 0 1px rgba(255, 255, 255, 0.02);
     }
-        }
+    }
