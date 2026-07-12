@@ -247,13 +247,17 @@
         return user ? user.displayName || username : username;
     }
 
+    function getIconPath(name) {
+        return 'icons/' + name + '.png';
+    }
+
     // ---------- NOTIFICATIONS ----------
     function sendNotification(username, message, time) {
         if (!('Notification' in window)) return;
         if (Notification.permission === 'granted') {
             new Notification('VVN - New Message', {
                 body: username + ': ' + message + ' at ' + time,
-                icon: 'icons/logo.png'
+                icon: getIconPath('logo')
             });
         } else if (Notification.permission !== 'denied') {
             Notification.requestPermission();
@@ -429,7 +433,12 @@
             root.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 12px)');
         }
 
-        // Update mobile view after device selection
+        // Also save in settings for theme switcher
+        if (state.settings) {
+            state.settings.device = device;
+            localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
+        }
+
         setTimeout(function() {
             updateMobileView();
             window.dispatchEvent(new Event('resize'));
@@ -608,9 +617,10 @@
                 const isPinned = pinnedContacts.includes(partner);
                 const displayName = getDisplayName(partner);
                 const avatarLetter = partner.charAt(0).toUpperCase();
+                const avatarImg = pUser && pUser.avatar ? pUser.avatar : getIconPath('user');
 
                 html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
-                html += '<div class="avatar"><span>' + avatarLetter + '</span></div>';
+                html += '<div class="avatar"><img src="' + avatarImg + '" alt="' + avatarLetter + '" /></div>';
                 html += '<div class="info">';
                 html += '<div class="name">' + displayName + ' ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
                 html += '<div class="preview">' + preview + '</div>';
@@ -649,7 +659,8 @@
         const displayName = getDisplayName(partnerUsername);
         if (DOM.chatPartnerName) DOM.chatPartnerName.textContent = displayName;
         if (DOM.chatPartnerStatus) DOM.chatPartnerStatus.textContent = partner.online ? 'Online' : 'Offline';
-        if (DOM.chatAvatar) DOM.chatAvatar.textContent = partner.username.charAt(0).toUpperCase();
+        const avatarImg = partner.avatar || getIconPath('user');
+        if (DOM.chatAvatar) DOM.chatAvatar.innerHTML = '<img src="' + avatarImg + '" alt="' + partner.username.charAt(0).toUpperCase() + '" />';
 
         const chatKey = getChatKey(state.currentUser.username, partnerUsername);
         const msgs = state.localCache.messages[chatKey] || [];
@@ -737,7 +748,6 @@
     function showPlaceholder() {
         if (DOM.chatActive) DOM.chatActive.style.display = 'none';
         if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'flex';
-        // On mobile, always show sidebar when placeholder is shown
         if (state.isMobile) {
             if (DOM.sidebar) DOM.sidebar.classList.remove('hide-mobile');
             if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
@@ -826,8 +836,9 @@
             const tags = getUserTags(u.username);
             const tagHtml = tags.map(function(t) { return '<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">' + t.label + '</span>'; }).join('');
             const avatarLetter = u.username.charAt(0).toUpperCase();
+            const avatarImg = u.avatar || getIconPath('user');
             html += '<div class="search-result-item" data-username="' + u.username + '">';
-            html += '<div class="avatar"><span>' + avatarLetter + '</span></div>';
+            html += '<div class="avatar"><img src="' + avatarImg + '" alt="' + avatarLetter + '" /></div>';
             html += '<div class="info">';
             html += '<div class="uname">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
             html += '<div class="email">@' + u.username + '</div>';
@@ -863,7 +874,7 @@
         if (DOM.profileBio) DOM.profileBio.textContent = user.bio || 'No bio yet';
         if (DOM.profileJoined) DOM.profileJoined.textContent = 'Joined: ' + formatDate(user.created || Date.now());
         if (DOM.profileAge) DOM.profileAge.textContent = 'Age: ' + getAge(user.created || Date.now());
-        if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || 'icons/user.png';
+        if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || getIconPath('user');
         if (DOM.profileUserID) DOM.profileUserID.textContent = 'ID: ' + user.username + '-' + (user.created || '').toString().slice(-6);
 
         if (state.settings.devMode && CONFIG.DEV_PIN) {
@@ -889,7 +900,7 @@
         if (DOM.settingsUsername) DOM.settingsUsername.value = user.username;
         if (DOM.settingsPassword) DOM.settingsPassword.value = '';
         if (DOM.settingsBio) DOM.settingsBio.value = user.bio || '';
-        if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.png';
+        if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || getIconPath('user');
 
         const savedSettings = localStorage.getItem('vvn_settings');
         if (savedSettings) {
@@ -910,6 +921,16 @@
         if (DOM.sessionTimeout) DOM.sessionTimeout.value = state.settings.sessionTimeout || 'never';
         if (DOM.messageHistory) DOM.messageHistory.value = state.settings.messageHistory || 'forever';
         if (DOM.messageDelivery) DOM.messageDelivery.value = state.settings.messageDelivery || 'e2ee';
+
+        // Load device selection in settings
+        const device = state.settings.device || state.deviceType || 'pc';
+        document.querySelectorAll('.device-option').forEach(function(btn) {
+            if (btn.dataset.device === device) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
 
         applyTheme(state.settings.theme || 'dark');
 
@@ -1400,8 +1421,19 @@
                 }
                 break;
             case 'device':
-                logout();
-                showDeviceSelection();
+                // Open settings to themes tab for device selection
+                openSettings();
+                // Switch to themes tab
+                document.querySelectorAll('.settings-tab').forEach(function(t) {
+                    t.classList.remove('active');
+                });
+                document.querySelectorAll('.settings-panel').forEach(function(p) {
+                    p.classList.remove('active');
+                });
+                const themesTab = document.querySelector('.settings-tab[data-tab="themes"]');
+                const themesPanel = document.getElementById('themesSettings');
+                if (themesTab) themesTab.classList.add('active');
+                if (themesPanel) themesPanel.classList.add('active');
                 break;
             case 'logout':
                 logout();
@@ -1481,18 +1513,14 @@
         if (!sidebar || !chatArea) return;
         
         if (isMobile) {
-            // On mobile, show either sidebar or chat area, never both
             if (state.currentChatPartner) {
-                // Chat is open - show chat area, hide sidebar
                 sidebar.classList.add('hide-mobile');
                 chatArea.classList.add('active-mobile');
             } else {
-                // No chat open - show sidebar, hide chat area
                 sidebar.classList.remove('hide-mobile');
                 chatArea.classList.remove('active-mobile');
             }
         } else {
-            // On desktop, show both
             sidebar.classList.remove('hide-mobile');
             chatArea.classList.remove('active-mobile');
         }
@@ -1520,7 +1548,6 @@
 
     // ---------- ADD VERSION TO UI ----------
     function addVersionToUI() {
-        // Add version to status bar
         const statusBar = document.querySelector('.status-bar');
         if (statusBar) {
             const versionSpan = document.createElement('span');
@@ -1532,7 +1559,6 @@
             }
         }
         
-        // Add version to device screen
         const deviceBox = document.querySelector('.device-box');
         if (deviceBox) {
             const versionTag = document.createElement('div');
@@ -1547,31 +1573,25 @@
         console.log('🚀 VVN Messenger v' + VVN_VERSION);
         console.log('📱 Device Selection First - Always shows on load');
         console.log('👤 This app uses REAL users from the JSONBin database.');
-        console.log('💬 Sample messages are only shown for first-time users.');
         
         if (DOM.loadingOverlay) {
             DOM.loadingOverlay.classList.remove('hidden');
         }
         updateLoading(5);
 
-        // Load saved settings
         loadSavedSettings();
 
-        // Request notification permission
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
 
-        // Check for saved device or auto-detect
         const savedDevice = localStorage.getItem('vvn_device');
         if (savedDevice && ['phone', 'tablet', 'pc'].includes(savedDevice)) {
             selectDevice(savedDevice);
         } else {
-            // ALWAYS SHOW DEVICE SELECTION FIRST
             showDeviceSelection();
         }
 
-        // Load from cache
         const cached = localStorage.getItem('vvn_cache');
         if (cached) {
             try {
@@ -1584,7 +1604,6 @@
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
-            // Create default owner account if no users exist
             if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
                 state.localCache.users.push({
                     username: 'vaultnet',
@@ -1602,7 +1621,6 @@
 
         updateLoading(50);
 
-        // Try to sync with JSONBin
         try {
             const remote = await fetchFromBin();
             if (remote) {
@@ -1611,7 +1629,6 @@
                     chats: remote.chats || {},
                     messages: remote.messages || {}
                 };
-                // Ensure default owner exists
                 if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
                     state.localCache.users.push({
                         username: 'vaultnet',
@@ -1632,12 +1649,10 @@
 
         updateLoading(80);
 
-        // Apply theme
         if (state.settings.theme) {
             applyTheme(state.settings.theme);
         }
 
-        // Set initial pattern
         const bg = document.querySelector('.chat-bg-pattern');
         if (bg) {
             const randomPattern = patterns[Math.floor(Math.random() * patterns.length)];
@@ -1647,17 +1662,14 @@
 
         updateLoading(90);
 
-        // Add version to UI
         addVersionToUI();
 
-        // Check session
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
             const user = state.localCache.users.find(function(u) { return u.username === session.username; });
             if (user) {
                 state.currentUser = user;
                 renderMessenger();
-                // Update mobile view after render
                 setTimeout(function() {
                     updateMobileView();
                 }, 50);
@@ -1671,7 +1683,6 @@
             }
         }
 
-        // If no session, show device selection
         showDeviceSelection();
         if (DOM.messenger) DOM.messenger.style.display = 'none';
         updateLoading(100);
